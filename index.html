@@ -28,9 +28,10 @@
     .circle-radius-line span { white-space: nowrap; }
     .icon-button { width: auto; min-width: 36px; padding: 7px 9px; margin: 0; border-radius: 8px; background: #111827; color: white; border: 1px solid #111827; cursor: pointer; font-weight: bold; }
     #circleControlsBody.hidden { display: none; }
-    #circleButtonRow { display: flex; gap: 8px; }
-    #circleButtonRow button { flex: 1; }
-    #mapButtonRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    #circleButtonRow { display: flex; flex-direction: column; gap: 0; }
+    #circleButtonRow button { width: 100%; }
+    #mapButtonRow { display: flex; flex-direction: column; gap: 0; margin-top: 0; }
+    .map-control-button { text-align: left; display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
 
     #mapSearchSettings {
       display: none; position: fixed; top: 188px; left: 16px; z-index: 9; width: 330px;
@@ -40,7 +41,8 @@
     #mapSearchSettings.open { display: block; }
     #mapSearchSettings label { margin-top: 8px; font-size: 13px; display: block; font-weight: bold; }
     #mapSearchSettings input, #mapSearchSettings select { width: 100%; padding: 7px; margin-top: 4px; font-size: 13px; }
-    .type-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; font-weight: bold; font-size: 13px; }
+    .type-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; font-weight: bold; font-size: 13px; flex-wrap: nowrap; }
+    .type-header > span { white-space: nowrap; font-size: 12px; }
     .select-all-mini { display: flex !important; align-items: center; gap: 4px; font-size: 12px !important; font-weight: normal !important; white-space: nowrap; margin-top: 0 !important; }
     .select-all-mini input { width: auto !important; margin: 0 !important; }
     #businessTypeBox { max-height: 120px; overflow-y: auto; margin-top: 6px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: white; }
@@ -115,22 +117,21 @@
     </div>
 
     <div id="mapControls">
-      <div class="circle-radius-line">
-        <button class="icon-button" title="Show / hide radius settings" onclick="toggleCircleRadiusSettings()">📡</button>
-        <span><strong>Circle Radius:</strong> <span id="radiusLabel">500 feet</span></span>
-      </div>
+      <button class="icon-button map-control-button" title="Show / hide scanner settings" onclick="toggleCircleRadiusSettings()">📡 Scanner</button>
 
       <div id="circleControlsBody">
+        <label>Radius: <span id="radiusLabel">500 feet</span></label>
         <input id="radiusSlider" type="range" min="50" max="10000" step="50" value="500" />
-        <div id="circleButtonRow">
-          <button onclick="scanCircle()">🔍 Scan</button>
-          <button id="removeCircleButton" onclick="removeCircle()" class="disabled-grey">🗑️ Remove</button>
-        </div>
+      </div>
+
+      <div id="circleButtonRow">
+        <button class="map-control-button" onclick="scanCircle()">🔍 Scan</button>
+        <button id="removeCircleButton" onclick="removeCircle()" class="disabled-grey map-control-button">🗑️ Remove</button>
       </div>
 
       <div id="mapButtonRow">
-        <button class="settings" onclick="toggleMapSearchSettings()">⚙️ Settings</button>
-        <button class="secondary" onclick="togglePanel()">👁️ BAS</button>
+        <button class="settings map-control-button" onclick="toggleMapSearchSettings()">⚙️ Settings</button>
+        <button id="mapPanelToggleButton" class="secondary map-control-button" onclick="togglePanel()">☰ Hide</button>
       </div>
     </div>
 
@@ -179,10 +180,11 @@
 
     <div id="panel">
       <h2>Business Area Scanner</h2>
-      <div id="status">Ready.</div>
+      <div id="status">Ready, double click to create a scan circle.</div>
       <div id="progressOuter"><div id="progressInner">0%</div></div>
       <button id="clearResultsButton" onclick="clearResults()" class="danger">🧹 Clear Results</button>
-      <h3>Results: <span id="resultCount">0</span></h3>
+      <h3>Total Results: <span id="totalResultCount">0</span></h3>
+      <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
       <div id="results"></div>
     </div>
@@ -235,7 +237,10 @@
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        disableDoubleClickZoom: true
+        disableDoubleClickZoom: true,
+        styles: [
+          { featureType: "all", elementType: "labels", stylers: [{ visibility: "off" }] }
+        ]
       });
 
       placesService = new google.maps.places.PlacesService(map);
@@ -273,7 +278,7 @@
       updateFloatingButtons();
       updateRemoveCircleButton();
       updateBusinessTypeFilter();
-      updateStatus("Ready.");
+      updateStatus("Ready, double click to create a scan circle.");
     }
 
     function closeHint() { document.getElementById("mapHint").style.display = "none"; }
@@ -296,6 +301,8 @@
       requestAnimationFrame(function() {
         panel.style.transition = "transform 0.2s ease";
         document.getElementById("panelToggle").textContent = "Hide";
+        const mapPanelButton = document.getElementById("mapPanelToggleButton");
+        if (mapPanelButton) mapPanelButton.textContent = "☰ Hide";
         updateFloatingButtons();
       });
     }
@@ -377,8 +384,11 @@
     function togglePanel() {
       const panel = document.getElementById("panel");
       const hideButton = document.getElementById("panelToggle");
+      const mapPanelButton = document.getElementById("mapPanelToggleButton");
       panel.classList.toggle("closed");
-      hideButton.textContent = panel.classList.contains("closed") ? "Show" : "Hide";
+      const isClosed = panel.classList.contains("closed");
+      hideButton.textContent = isClosed ? "Show" : "Hide";
+      if (mapPanelButton) mapPanelButton.textContent = isClosed ? "☰ Show" : "☰ Hide";
       updateFloatingButtons();
     }
 
@@ -720,7 +730,8 @@
 
     function renderResults() {
       const resultsDiv = document.getElementById("results");
-      const countSpan = document.getElementById("resultCount");
+      const totalCountSpan = document.getElementById("totalResultCount");
+      const filteredCountSpan = document.getElementById("filteredResultCount");
       const sortValue = document.getElementById("sortSelect").value;
       const nameSearch = document.getElementById("nameSearch").value.toLowerCase().trim();
       const addressSearch = document.getElementById("addressSearch").value.toLowerCase().trim();
@@ -744,7 +755,8 @@
         if (sortValue === "no-website") return Number(!b.website) - Number(!a.website);
         return 0;
       });
-      countSpan.textContent = businesses.length;
+      totalCountSpan.textContent = allBusinesses.length;
+      filteredCountSpan.textContent = businesses.length;
       resultsDiv.innerHTML = "";
       for (const business of businesses) {
         createMarker(business);
@@ -761,7 +773,8 @@
       if (!shouldShow) return;
       createMarker(business);
       document.getElementById("results").appendChild(createBusinessCard(business));
-      document.getElementById("resultCount").textContent = document.querySelectorAll(".business-card").length;
+      document.getElementById("totalResultCount").textContent = allBusinesses.length;
+      document.getElementById("filteredResultCount").textContent = document.querySelectorAll(".business-card").length;
       document.getElementById("clearResultsButton").style.display = "block";
       updateBackToTopButton();
     }
@@ -827,7 +840,7 @@
     function scrollToBusinessListing(business) {
       const panel = document.getElementById("panel");
       const hideButton = document.getElementById("panelToggle");
-      if (panel.classList.contains("closed")) { panel.classList.remove("closed"); hideButton.textContent = "Hide"; updateFloatingButtons(); }
+      if (panel.classList.contains("closed")) { panel.classList.remove("closed"); hideButton.textContent = "Hide"; const mapPanelButton = document.getElementById("mapPanelToggleButton"); if (mapPanelButton) mapPanelButton.textContent = "☰ Hide"; updateFloatingButtons(); }
       const card = document.getElementById(`business-card-${business.placeId}`);
       if (!card) return;
       card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -907,7 +920,8 @@
       clearMarkers();
       updateBusinessTypeFilter();
       document.getElementById("results").innerHTML = "";
-      document.getElementById("resultCount").textContent = "0";
+      document.getElementById("totalResultCount").textContent = "0";
+      document.getElementById("filteredResultCount").textContent = "0";
       document.getElementById("clearResultsButton").style.display = "none";
       document.getElementById("backToTopButton").style.display = "none";
       updateStatus("Results cleared.");
