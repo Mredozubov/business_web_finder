@@ -51,9 +51,15 @@
       right: 390px;
       z-index: 11;
       width: auto;
-      padding: 10px 12px;
-      border-radius: 8px 0 0 8px;
+      min-width: 78px;
+      padding: 12px 14px;
+      border-radius: 10px 0 0 10px;
       background: #111827;
+      color: white;
+      border: 2px solid white;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+      font-size: 15px;
+      font-weight: bold;
     }
 
     #panel.closed + #panelToggle { right: 0; }
@@ -72,30 +78,21 @@
       margin-top: 6px;
     }
 
-    input[type="range"] { padding: 0; }
-
     button {
       width: 100%;
-      padding: 10px;
+      padding: 11px;
       margin-top: 10px;
       border: none;
       background: #2563eb;
       color: white;
       font-weight: bold;
       cursor: pointer;
-      border-radius: 6px;
+      border-radius: 7px;
     }
 
     button:hover { background: #1d4ed8; }
-    button.secondary { background: #555; }
+    button.secondary { background: #4b5563; }
     button.danger { background: #dc2626; }
-
-    .row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .row button { flex: 1; }
 
     #status {
       margin-top: 12px;
@@ -155,7 +152,7 @@
         top: auto;
         bottom: 58vh;
         right: 12px;
-        border-radius: 8px 8px 0 0;
+        border-radius: 10px 10px 0 0;
       }
 
       #panel.closed + #panelToggle {
@@ -174,11 +171,16 @@
       <h2>Business Area Scanner</h2>
 
       <p>
-        Move the map under the center circle, adjust the radius, then scan. After scanning, the circle stays on the scanned area.
+        Double-click the map to place the scan circle. Drag the outside circle handle to resize it.
       </p>
 
-      <label>Circle Radius: <span id="radiusLabel">500</span> meters</label>
-      <input id="radiusSlider" type="range" min="50" max="3000" step="50" value="500" />
+      <label>Circle Radius: <span id="radiusLabel">Not placed</span></label>
+
+      <label>Search by Business Name</label>
+      <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
+
+      <label>Search by Address</label>
+      <input id="addressSearch" placeholder="Example: Brooklyn" oninput="renderResults()" />
 
       <label>Scan Density</label>
       <select id="densitySelect">
@@ -199,17 +201,12 @@
         <option value="review-asc">Last Review Oldest-Newest</option>
       </select>
 
-      <div class="row">
-        <button onclick="rotateLeft()">Rotate Left</button>
-        <button onclick="rotateRight()">Rotate Right</button>
-      </div>
-
-      <button onclick="scanCircle()">Scan Center Circle</button>
-      <button onclick="moveCircleToMapCenter()" class="secondary">Move Circle To Map Center</button>
+      <button onclick="scanCircle()">Scan Circle</button>
       <button onclick="exportCSV()" class="secondary">Export CSV</button>
       <button onclick="clearResults()" class="danger">Clear Results</button>
+      <button onclick="removeCircle()" class="danger">Remove Circle</button>
 
-      <div id="status">Move the map so the area is inside the center circle.</div>
+      <div id="status">Double-click the map to place your scan circle.</div>
 
       <h3>Results: <span id="resultCount">0</span></h3>
       <div id="results"></div>
@@ -220,35 +217,51 @@
 
   <script>
     let map;
-    let circle;
+    let circle = null;
+    let resizeMarker = null;
     let placesService;
 
     let allBusinesses = [];
     let seenPlaceIds = new Set();
     let markers = [];
     let activeInfoWindow = null;
-    let circleFollowsMapCenter = true;
 
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
+    const DEFAULT_RADIUS = 500;
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
         center: DEFAULT_CENTER,
         zoom: 15,
         mapTypeId: "roadmap",
-        tilt: 45,
-        heading: 0,
         mapTypeControl: true,
         streetViewControl: true,
-        fullscreenControl: true
+        fullscreenControl: true,
+        disableDoubleClickZoom: true
       });
 
       placesService = new google.maps.places.PlacesService(map);
 
+      map.addListener("dblclick", function(event) {
+        placeCircle(event.latLng);
+      });
+
+      updateStatus("Ready. Double-click the map to place your scan circle.");
+    }
+
+    function placeCircle(center) {
+      if (circle) {
+        circle.setMap(null);
+      }
+
+      if (resizeMarker) {
+        resizeMarker.setMap(null);
+      }
+
       circle = new google.maps.Circle({
         map: map,
-        center: map.getCenter(),
-        radius: 500,
+        center: center,
+        radius: DEFAULT_RADIUS,
         clickable: false,
         draggable: false,
         editable: false,
@@ -259,19 +272,62 @@
         strokeWeight: 2
       });
 
-      map.addListener("center_changed", function() {
-        if (circleFollowsMapCenter) {
-          circle.setCenter(map.getCenter());
-        }
+      resizeMarker = new google.maps.Marker({
+        map: map,
+        position: getResizeMarkerPosition(center, DEFAULT_RADIUS),
+        draggable: true,
+        title: "Drag to resize scan circle"
       });
 
-      document.getElementById("radiusSlider").addEventListener("input", function() {
-        const radius = Number(this.value);
-        circle.setRadius(radius);
-        document.getElementById("radiusLabel").textContent = radius;
+      resizeMarker.addListener("drag", function(event) {
+        const newRadius = distanceMeters(
+          circle.getCenter().lat(),
+          circle.getCenter().lng(),
+          event.latLng.lat(),
+          event.latLng.lng()
+        );
+
+        circle.setRadius(newRadius);
+        updateRadiusLabel(newRadius);
       });
 
-      updateStatus("Ready. Move the map so the area is inside the center circle.");
+      resizeMarker.addListener("dragend", function(event) {
+        const newRadius = circle.getRadius();
+        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+      });
+
+      updateRadiusLabel(DEFAULT_RADIUS);
+      updateStatus("Circle placed. Drag the outside marker to resize it.");
+    }
+
+    function getResizeMarkerPosition(center, radiusMeters) {
+      const lat = center.lat();
+      const lng = center.lng();
+      const lngOffset = metersToLng(radiusMeters, lat);
+
+      return {
+        lat: lat,
+        lng: lng + lngOffset
+      };
+    }
+
+    function updateRadiusLabel(radius) {
+      document.getElementById("radiusLabel").textContent = `${Math.round(radius)} meters`;
+    }
+
+    function removeCircle() {
+      if (circle) {
+        circle.setMap(null);
+        circle = null;
+      }
+
+      if (resizeMarker) {
+        resizeMarker.setMap(null);
+        resizeMarker = null;
+      }
+
+      document.getElementById("radiusLabel").textContent = "Not placed";
+      updateStatus("Circle removed. Double-click the map to place a new one.");
     }
 
     function togglePanel() {
@@ -279,23 +335,7 @@
       const button = document.getElementById("panelToggle");
 
       panel.classList.toggle("closed");
-      button.textContent = panel.classList.contains("closed") ? "BASS" : "Hide";
-    }
-
-    function rotateLeft() {
-      const currentHeading = map.getHeading() || 0;
-      map.setHeading(currentHeading - 20);
-    }
-
-    function rotateRight() {
-      const currentHeading = map.getHeading() || 0;
-      map.setHeading(currentHeading + 20);
-    }
-
-    function moveCircleToMapCenter() {
-      circleFollowsMapCenter = true;
-      circle.setCenter(map.getCenter());
-      updateStatus("Circle moved back to the center of the map.");
+      button.textContent = panel.classList.contains("closed") ? "Show" : "Hide";
     }
 
     function updateStatus(message) {
@@ -375,14 +415,15 @@
     }
 
     async function scanCircle() {
+      if (!circle) {
+        alert("Double-click the map to place a circle first.");
+        return;
+      }
+
       clearResults();
 
-      const scannedCenter = map.getCenter();
+      const scannedCenter = circle.getCenter();
       const radius = circle.getRadius();
-
-      circleFollowsMapCenter = false;
-      circle.setCenter(scannedCenter);
-
       const searchPoints = generateSearchPoints(scannedCenter, radius);
 
       updateStatus(`Scanning ${searchPoints.length} points...`);
@@ -515,12 +556,20 @@
       const resultsDiv = document.getElementById("results");
       const countSpan = document.getElementById("resultCount");
       const sortValue = document.getElementById("sortSelect").value;
+      const nameSearch = document.getElementById("nameSearch").value.toLowerCase().trim();
+      const addressSearch = document.getElementById("addressSearch").value.toLowerCase().trim();
 
       clearMarkers();
 
-      const sortedBusinesses = [...allBusinesses];
+      let businesses = [...allBusinesses];
 
-      sortedBusinesses.sort(function(a, b) {
+      businesses = businesses.filter(function(business) {
+        const nameMatch = business.name.toLowerCase().includes(nameSearch);
+        const addressMatch = business.address.toLowerCase().includes(addressSearch);
+        return nameMatch && addressMatch;
+      });
+
+      businesses.sort(function(a, b) {
         if (sortValue === "name-asc") return a.name.localeCompare(b.name);
         if (sortValue === "name-desc") return b.name.localeCompare(a.name);
         if (sortValue === "address-asc") return a.address.localeCompare(b.address);
@@ -532,10 +581,10 @@
         return 0;
       });
 
-      countSpan.textContent = sortedBusinesses.length;
+      countSpan.textContent = businesses.length;
       resultsDiv.innerHTML = "";
 
-      for (const business of sortedBusinesses) {
+      for (const business of businesses) {
         createMarker(business);
 
         const card = document.createElement("div");
