@@ -6,9 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -45,9 +43,7 @@
       z-index: 10;
     }
 
-    #panel.closed {
-      transform: translateX(100%);
-    }
+    #panel.closed { transform: translateX(100%); }
 
     #panelToggle {
       position: fixed;
@@ -60,13 +56,9 @@
       background: #111827;
     }
 
-    #panel.closed + #panelToggle {
-      right: 0;
-    }
+    #panel.closed + #panelToggle { right: 0; }
 
-    h2 {
-      margin-top: 0;
-    }
+    h2 { margin-top: 0; }
 
     label {
       display: block;
@@ -74,16 +66,13 @@
       font-weight: bold;
     }
 
-    input,
-    select {
+    input, select {
       width: 100%;
       padding: 9px;
       margin-top: 6px;
     }
 
-    input[type="range"] {
-      padding: 0;
-    }
+    input[type="range"] { padding: 0; }
 
     button {
       width: 100%;
@@ -97,26 +86,16 @@
       border-radius: 6px;
     }
 
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    button.secondary {
-      background: #555;
-    }
-
-    button.danger {
-      background: #dc2626;
-    }
+    button:hover { background: #1d4ed8; }
+    button.secondary { background: #555; }
+    button.danger { background: #dc2626; }
 
     .row {
       display: flex;
       gap: 8px;
     }
 
-    .row button {
-      flex: 1;
-    }
+    .row button { flex: 1; }
 
     #status {
       margin-top: 12px;
@@ -141,9 +120,7 @@
       border-color: #2563eb;
     }
 
-    .business-card strong {
-      font-size: 15px;
-    }
+    .business-card strong { font-size: 15px; }
 
     .missing {
       color: #dc2626;
@@ -155,9 +132,7 @@
       font-weight: bold;
     }
 
-    a {
-      word-break: break-word;
-    }
+    a { word-break: break-word; }
 
     @media (max-width: 700px) {
       #panel {
@@ -199,7 +174,7 @@
       <h2>Business Area Scanner</h2>
 
       <p>
-        The circle stays centered on the map. Move the map under it, adjust the radius, then scan.
+        Move the map under the center circle, adjust the radius, then scan. After scanning, the circle stays on the scanned area.
       </p>
 
       <label>Circle Radius: <span id="radiusLabel">500</span> meters</label>
@@ -212,32 +187,29 @@
         <option value="deep">Deep / slower scan</option>
       </select>
 
+      <label>Sort Results</label>
+      <select id="sortSelect" onchange="renderResults()">
+        <option value="name-asc">Name A-Z</option>
+        <option value="name-desc">Name Z-A</option>
+        <option value="address-asc">Address A-Z</option>
+        <option value="address-desc">Address Z-A</option>
+        <option value="rating-desc">Rating High-Low</option>
+        <option value="rating-asc">Rating Low-High</option>
+        <option value="review-desc">Last Review Newest-Oldest</option>
+        <option value="review-asc">Last Review Oldest-Newest</option>
+      </select>
+
       <div class="row">
         <button onclick="rotateLeft()">Rotate Left</button>
         <button onclick="rotateRight()">Rotate Right</button>
       </div>
 
       <button onclick="scanCircle()">Scan Center Circle</button>
+      <button onclick="moveCircleToMapCenter()" class="secondary">Move Circle To Map Center</button>
       <button onclick="exportCSV()" class="secondary">Export CSV</button>
       <button onclick="clearResults()" class="danger">Clear Results</button>
 
       <div id="status">Move the map so the area is inside the center circle.</div>
-
-      <label>Filter by Name</label>
-      <input id="nameFilter" placeholder="Example: pizza" oninput="renderResults()" />
-
-      <label>Filter by Address</label>
-      <input id="addressFilter" placeholder="Example: Brooklyn" oninput="renderResults()" />
-
-      <label>Minimum Rating</label>
-      <select id="ratingFilter" onchange="renderResults()">
-        <option value="0">Any rating</option>
-        <option value="1">1.0+</option>
-        <option value="2">2.0+</option>
-        <option value="3">3.0+</option>
-        <option value="4">4.0+</option>
-        <option value="4.5">4.5+</option>
-      </select>
 
       <h3>Results: <span id="resultCount">0</span></h3>
       <div id="results"></div>
@@ -255,6 +227,7 @@
     let seenPlaceIds = new Set();
     let markers = [];
     let activeInfoWindow = null;
+    let circleFollowsMapCenter = true;
 
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
 
@@ -287,7 +260,9 @@
       });
 
       map.addListener("center_changed", function() {
-        circle.setCenter(map.getCenter());
+        if (circleFollowsMapCenter) {
+          circle.setCenter(map.getCenter());
+        }
       });
 
       document.getElementById("radiusSlider").addEventListener("input", function() {
@@ -317,6 +292,12 @@
       map.setHeading(currentHeading + 20);
     }
 
+    function moveCircleToMapCenter() {
+      circleFollowsMapCenter = true;
+      circle.setCenter(map.getCenter());
+      updateStatus("Circle moved back to the center of the map.");
+    }
+
     function updateStatus(message) {
       document.getElementById("status").textContent = message;
     }
@@ -325,23 +306,14 @@
       const density = document.getElementById("densitySelect").value;
 
       if (density === "fast") {
-        return {
-          gridStepMultiplier: 0.9,
-          searchRadiusMultiplier: 0.9
-        };
+        return { gridStepMultiplier: 0.9, searchRadiusMultiplier: 0.9 };
       }
 
       if (density === "deep") {
-        return {
-          gridStepMultiplier: 0.45,
-          searchRadiusMultiplier: 0.7
-        };
+        return { gridStepMultiplier: 0.45, searchRadiusMultiplier: 0.7 };
       }
 
-      return {
-        gridStepMultiplier: 0.65,
-        searchRadiusMultiplier: 0.8
-      };
+      return { gridStepMultiplier: 0.65, searchRadiusMultiplier: 0.8 };
     }
 
     function metersToLat(meters) {
@@ -398,20 +370,20 @@
         }
       }
 
-      points.push({
-        location: center,
-        radius: searchRadius
-      });
-
+      points.push({ location: center, radius: searchRadius });
       return points;
     }
 
     async function scanCircle() {
       clearResults();
 
-      const center = map.getCenter();
+      const scannedCenter = map.getCenter();
       const radius = circle.getRadius();
-      const searchPoints = generateSearchPoints(center, radius);
+
+      circleFollowsMapCenter = false;
+      circle.setCenter(scannedCenter);
+
+      const searchPoints = generateSearchPoints(scannedCenter, radius);
 
       updateStatus(`Scanning ${searchPoints.length} points...`);
 
@@ -485,7 +457,7 @@
 
         placesService.getDetails(request, function(place, status) {
           if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-            const latestReviewDate = getLatestReviewDate(place.reviews);
+            const reviewInfo = getLatestReviewInfo(place.reviews);
 
             resolve({
               placeId: place.place_id || "",
@@ -500,7 +472,8 @@
               types: place.types ? place.types.join(", ") : "",
               latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
               longitude: place.geometry && place.geometry.location ? place.geometry.location.lng() : "",
-              latestReviewDate: latestReviewDate
+              latestReviewDate: reviewInfo.dateText,
+              latestReviewTimestamp: reviewInfo.timestamp
             });
           } else {
             resolve(null);
@@ -509,9 +482,12 @@
       });
     }
 
-    function getLatestReviewDate(reviews) {
+    function getLatestReviewInfo(reviews) {
       if (!reviews || reviews.length === 0) {
-        return "No review date provided";
+        return {
+          dateText: "No review date provided",
+          timestamp: 0
+        };
       }
 
       let newestTime = 0;
@@ -523,41 +499,43 @@
       }
 
       if (!newestTime) {
-        return "No review date provided";
+        return {
+          dateText: "No review date provided",
+          timestamp: 0
+        };
       }
 
-      return new Date(newestTime * 1000).toLocaleDateString();
+      return {
+        dateText: new Date(newestTime * 1000).toLocaleDateString(),
+        timestamp: newestTime
+      };
     }
 
     function renderResults() {
       const resultsDiv = document.getElementById("results");
       const countSpan = document.getElementById("resultCount");
-
-      const nameFilter = document.getElementById("nameFilter").value.toLowerCase().trim();
-      const addressFilter = document.getElementById("addressFilter").value.toLowerCase().trim();
-      const ratingFilter = Number(document.getElementById("ratingFilter").value);
+      const sortValue = document.getElementById("sortSelect").value;
 
       clearMarkers();
 
-      const filteredBusinesses = allBusinesses.filter(function(business) {
-        const nameMatch = business.name.toLowerCase().includes(nameFilter);
-        const addressMatch = business.address.toLowerCase().includes(addressFilter);
-        const rating = Number(business.rating || 0);
-        const ratingMatch = rating >= ratingFilter;
+      const sortedBusinesses = [...allBusinesses];
 
-        return nameMatch && addressMatch && ratingMatch;
+      sortedBusinesses.sort(function(a, b) {
+        if (sortValue === "name-asc") return a.name.localeCompare(b.name);
+        if (sortValue === "name-desc") return b.name.localeCompare(a.name);
+        if (sortValue === "address-asc") return a.address.localeCompare(b.address);
+        if (sortValue === "address-desc") return b.address.localeCompare(a.address);
+        if (sortValue === "rating-desc") return Number(b.rating || 0) - Number(a.rating || 0);
+        if (sortValue === "rating-asc") return Number(a.rating || 0) - Number(b.rating || 0);
+        if (sortValue === "review-desc") return Number(b.latestReviewTimestamp || 0) - Number(a.latestReviewTimestamp || 0);
+        if (sortValue === "review-asc") return Number(a.latestReviewTimestamp || 0) - Number(b.latestReviewTimestamp || 0);
+        return 0;
       });
 
-      filteredBusinesses.sort((a, b) => {
-        const aMissing = a.website ? 1 : 0;
-        const bMissing = b.website ? 1 : 0;
-        return aMissing - bMissing;
-      });
-
-      countSpan.textContent = filteredBusinesses.length;
+      countSpan.textContent = sortedBusinesses.length;
       resultsDiv.innerHTML = "";
 
-      for (const business of filteredBusinesses) {
+      for (const business of sortedBusinesses) {
         createMarker(business);
 
         const card = document.createElement("div");
@@ -583,11 +561,11 @@
         `;
 
         card.addEventListener("mouseenter", function() {
-          showBusinessMarker(business);
+          highlightBusiness(business);
         });
 
         card.addEventListener("click", function() {
-          showBusinessMarker(business);
+          highlightBusiness(business);
           map.panTo({ lat: Number(business.latitude), lng: Number(business.longitude) });
           map.setZoom(Math.max(map.getZoom(), 17));
         });
@@ -597,12 +575,10 @@
     }
 
     function createMarker(business) {
-      if (!business.latitude || !business.longitude) {
-        return;
-      }
+      if (!business.latitude || !business.longitude) return;
 
       const marker = new google.maps.Marker({
-        map: null,
+        map: map,
         position: {
           lat: Number(business.latitude),
           lng: Number(business.longitude)
@@ -610,17 +586,29 @@
         title: business.name
       });
 
+      marker.addListener("click", function() {
+        showInfoWindow(business, marker);
+      });
+
       business.marker = marker;
       markers.push(marker);
     }
 
-    function showBusinessMarker(business) {
-      if (!business.marker) {
-        return;
-      }
+    function highlightBusiness(business) {
+      if (!business.marker) return;
 
-      business.marker.setMap(map);
+      business.marker.setAnimation(google.maps.Animation.BOUNCE);
 
+      setTimeout(function() {
+        if (business.marker) {
+          business.marker.setAnimation(null);
+        }
+      }, 700);
+
+      showInfoWindow(business, business.marker);
+    }
+
+    function showInfoWindow(business, marker) {
       if (activeInfoWindow) {
         activeInfoWindow.close();
       }
@@ -634,7 +622,7 @@
         `
       });
 
-      activeInfoWindow.open(map, business.marker);
+      activeInfoWindow.open(map, marker);
     }
 
     function clearMarkers() {
