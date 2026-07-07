@@ -14,27 +14,54 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f4f4f4;
+      overflow: hidden;
     }
 
     #app {
-      display: flex;
       height: 100vh;
       width: 100vw;
+      position: relative;
     }
 
     #map {
-      flex: 2;
       height: 100%;
+      width: 100%;
     }
 
     #panel {
-      flex: 1;
-      min-width: 360px;
-      max-width: 480px;
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 390px;
+      max-width: 88vw;
+      height: 100vh;
       background: white;
       padding: 16px;
       overflow-y: auto;
       border-left: 1px solid #ddd;
+      box-shadow: -2px 0 12px rgba(0,0,0,0.2);
+      transform: translateX(0);
+      transition: transform 0.25s ease;
+      z-index: 10;
+    }
+
+    #panel.closed {
+      transform: translateX(100%);
+    }
+
+    #panelToggle {
+      position: fixed;
+      top: 16px;
+      right: 390px;
+      z-index: 11;
+      width: auto;
+      padding: 10px 12px;
+      border-radius: 8px 0 0 8px;
+      background: #111827;
+    }
+
+    #panel.closed + #panelToggle {
+      right: 0;
     }
 
     h2 {
@@ -47,11 +74,15 @@
       font-weight: bold;
     }
 
-    input[type="range"],
+    input,
     select {
       width: 100%;
-      padding: 8px;
+      padding: 9px;
       margin-top: 6px;
+    }
+
+    input[type="range"] {
+      padding: 0;
     }
 
     button {
@@ -95,10 +126,6 @@
       font-size: 14px;
     }
 
-    #results {
-      margin-top: 16px;
-    }
-
     .business-card {
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -106,6 +133,12 @@
       margin-bottom: 10px;
       background: #fafafa;
       font-size: 14px;
+      cursor: pointer;
+    }
+
+    .business-card:hover {
+      background: #eef2ff;
+      border-color: #2563eb;
     }
 
     .business-card strong {
@@ -125,6 +158,36 @@
     a {
       word-break: break-word;
     }
+
+    @media (max-width: 700px) {
+      #panel {
+        top: auto;
+        bottom: 0;
+        right: 0;
+        width: 100vw;
+        max-width: 100vw;
+        height: 58vh;
+        border-left: none;
+        border-top: 1px solid #ddd;
+        transform: translateY(0);
+      }
+
+      #panel.closed {
+        transform: translateY(calc(100% - 54px));
+      }
+
+      #panelToggle {
+        top: auto;
+        bottom: 58vh;
+        right: 12px;
+        border-radius: 8px 8px 0 0;
+      }
+
+      #panel.closed + #panelToggle {
+        bottom: 54px;
+        right: 12px;
+      }
+    }
   </style>
 </head>
 
@@ -136,7 +199,7 @@
       <h2>Business Area Scanner</h2>
 
       <p>
-        Move the circle on the map, adjust the radius, then scan for businesses inside it.
+        The circle stays centered on the map. Move the map under it, adjust the radius, then scan.
       </p>
 
       <label>Circle Radius: <span id="radiusLabel">500</span> meters</label>
@@ -154,23 +217,44 @@
         <button onclick="rotateRight()">Rotate Right</button>
       </div>
 
-      <button onclick="scanCircle()">Scan Circle Area</button>
+      <button onclick="scanCircle()">Scan Center Circle</button>
       <button onclick="exportCSV()" class="secondary">Export CSV</button>
       <button onclick="clearResults()" class="danger">Clear Results</button>
 
-      <div id="status">Drag the circle or click the map to move it.</div>
+      <div id="status">Move the map so the area is inside the center circle.</div>
+
+      <label>Filter by Name</label>
+      <input id="nameFilter" placeholder="Example: pizza" oninput="renderResults()" />
+
+      <label>Filter by Address</label>
+      <input id="addressFilter" placeholder="Example: Brooklyn" oninput="renderResults()" />
+
+      <label>Minimum Rating</label>
+      <select id="ratingFilter" onchange="renderResults()">
+        <option value="0">Any rating</option>
+        <option value="1">1.0+</option>
+        <option value="2">2.0+</option>
+        <option value="3">3.0+</option>
+        <option value="4">4.0+</option>
+        <option value="4.5">4.5+</option>
+      </select>
 
       <h3>Results: <span id="resultCount">0</span></h3>
       <div id="results"></div>
     </div>
+
+    <button id="panelToggle" onclick="togglePanel()">Hide</button>
   </div>
 
   <script>
     let map;
     let circle;
     let placesService;
+
     let allBusinesses = [];
     let seenPlaceIds = new Set();
+    let markers = [];
+    let activeInfoWindow = null;
 
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
 
@@ -190,29 +274,20 @@
 
       circle = new google.maps.Circle({
         map: map,
-        center: DEFAULT_CENTER,
+        center: map.getCenter(),
         radius: 500,
-        draggable: true,
-        editable: true,
+        clickable: false,
+        draggable: false,
+        editable: false,
         fillColor: "#2563eb",
-        fillOpacity: 0.18,
+        fillOpacity: 0.16,
         strokeColor: "#2563eb",
-        strokeOpacity: 0.9,
+        strokeOpacity: 0.95,
         strokeWeight: 2
       });
 
-      map.addListener("click", function(event) {
-        circle.setCenter(event.latLng);
-      });
-
-      circle.addListener("radius_changed", function() {
-        const radius = Math.round(circle.getRadius());
-        document.getElementById("radiusSlider").value = Math.min(radius, 3000);
-        document.getElementById("radiusLabel").textContent = radius;
-      });
-
-      circle.addListener("center_changed", function() {
-        updateStatus("Circle moved. Ready to scan.");
+      map.addListener("center_changed", function() {
+        circle.setCenter(map.getCenter());
       });
 
       document.getElementById("radiusSlider").addEventListener("input", function() {
@@ -221,7 +296,15 @@
         document.getElementById("radiusLabel").textContent = radius;
       });
 
-      updateStatus("Ready. Drag the circle, resize it, or click the map to move it.");
+      updateStatus("Ready. Move the map so the area is inside the center circle.");
+    }
+
+    function togglePanel() {
+      const panel = document.getElementById("panel");
+      const button = document.getElementById("panelToggle");
+
+      panel.classList.toggle("closed");
+      button.textContent = panel.classList.contains("closed") ? "BASS" : "Hide";
     }
 
     function rotateLeft() {
@@ -326,7 +409,7 @@
     async function scanCircle() {
       clearResults();
 
-      const center = circle.getCenter();
+      const center = map.getCenter();
       const radius = circle.getRadius();
       const searchPoints = generateSearchPoints(center, radius);
 
@@ -395,12 +478,15 @@
             "rating",
             "user_ratings_total",
             "business_status",
-            "types"
+            "types",
+            "reviews"
           ]
         };
 
         placesService.getDetails(request, function(place, status) {
           if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+            const latestReviewDate = getLatestReviewDate(place.reviews);
+
             resolve({
               placeId: place.place_id || "",
               name: place.name || "",
@@ -414,7 +500,7 @@
               types: place.types ? place.types.join(", ") : "",
               latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
               longitude: place.geometry && place.geometry.location ? place.geometry.location.lng() : "",
-              startedOrAddedToMaps: "Not provided by Google Places API"
+              latestReviewDate: latestReviewDate
             });
           } else {
             resolve(null);
@@ -423,20 +509,57 @@
       });
     }
 
+    function getLatestReviewDate(reviews) {
+      if (!reviews || reviews.length === 0) {
+        return "No review date provided";
+      }
+
+      let newestTime = 0;
+
+      for (const review of reviews) {
+        if (review.time && review.time > newestTime) {
+          newestTime = review.time;
+        }
+      }
+
+      if (!newestTime) {
+        return "No review date provided";
+      }
+
+      return new Date(newestTime * 1000).toLocaleDateString();
+    }
+
     function renderResults() {
       const resultsDiv = document.getElementById("results");
       const countSpan = document.getElementById("resultCount");
 
-      countSpan.textContent = allBusinesses.length;
-      resultsDiv.innerHTML = "";
+      const nameFilter = document.getElementById("nameFilter").value.toLowerCase().trim();
+      const addressFilter = document.getElementById("addressFilter").value.toLowerCase().trim();
+      const ratingFilter = Number(document.getElementById("ratingFilter").value);
 
-      allBusinesses.sort((a, b) => {
+      clearMarkers();
+
+      const filteredBusinesses = allBusinesses.filter(function(business) {
+        const nameMatch = business.name.toLowerCase().includes(nameFilter);
+        const addressMatch = business.address.toLowerCase().includes(addressFilter);
+        const rating = Number(business.rating || 0);
+        const ratingMatch = rating >= ratingFilter;
+
+        return nameMatch && addressMatch && ratingMatch;
+      });
+
+      filteredBusinesses.sort((a, b) => {
         const aMissing = a.website ? 1 : 0;
         const bMissing = b.website ? 1 : 0;
         return aMissing - bMissing;
       });
 
-      for (const business of allBusinesses) {
+      countSpan.textContent = filteredBusinesses.length;
+      resultsDiv.innerHTML = "";
+
+      for (const business of filteredBusinesses) {
+        createMarker(business);
+
         const card = document.createElement("div");
         card.className = "business-card";
 
@@ -452,14 +575,78 @@
           Website: ${websiteText}<br>
           Rating: ${escapeHtml(String(business.rating || "Not found"))}
           ${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>
+          Last Review Date: ${escapeHtml(business.latestReviewDate || "Not found")}<br>
           Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
           Types: ${escapeHtml(business.types || "Not found")}<br>
-          Started / Added to Maps: ${escapeHtml(business.startedOrAddedToMaps)}<br>
 
           ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open in Google Maps</a>` : ""}
         `;
 
+        card.addEventListener("mouseenter", function() {
+          showBusinessMarker(business);
+        });
+
+        card.addEventListener("click", function() {
+          showBusinessMarker(business);
+          map.panTo({ lat: Number(business.latitude), lng: Number(business.longitude) });
+          map.setZoom(Math.max(map.getZoom(), 17));
+        });
+
         resultsDiv.appendChild(card);
+      }
+    }
+
+    function createMarker(business) {
+      if (!business.latitude || !business.longitude) {
+        return;
+      }
+
+      const marker = new google.maps.Marker({
+        map: null,
+        position: {
+          lat: Number(business.latitude),
+          lng: Number(business.longitude)
+        },
+        title: business.name
+      });
+
+      business.marker = marker;
+      markers.push(marker);
+    }
+
+    function showBusinessMarker(business) {
+      if (!business.marker) {
+        return;
+      }
+
+      business.marker.setMap(map);
+
+      if (activeInfoWindow) {
+        activeInfoWindow.close();
+      }
+
+      activeInfoWindow = new google.maps.InfoWindow({
+        content: `
+          <strong>${escapeHtml(business.name)}</strong><br>
+          ${escapeHtml(business.address)}<br>
+          Rating: ${escapeHtml(String(business.rating || "Not found"))}<br>
+          Last Review: ${escapeHtml(business.latestReviewDate || "Not found")}
+        `
+      });
+
+      activeInfoWindow.open(map, business.marker);
+    }
+
+    function clearMarkers() {
+      for (const marker of markers) {
+        marker.setMap(null);
+      }
+
+      markers = [];
+
+      if (activeInfoWindow) {
+        activeInfoWindow.close();
+        activeInfoWindow = null;
       }
     }
 
@@ -477,11 +664,11 @@
         "Google Maps URL",
         "Rating",
         "Review Count",
+        "Last Review Date",
         "Business Status",
         "Types",
         "Latitude",
-        "Longitude",
-        "Started Or Added To Maps"
+        "Longitude"
       ];
 
       const rows = allBusinesses.map(business => [
@@ -492,11 +679,11 @@
         business.googleMapsUrl,
         business.rating,
         business.reviewCount,
+        business.latestReviewDate,
         business.businessStatus,
         business.types,
         business.latitude,
-        business.longitude,
-        business.startedOrAddedToMaps
+        business.longitude
       ]);
 
       let csvContent = "";
@@ -522,6 +709,7 @@
     function clearResults() {
       allBusinesses = [];
       seenPlaceIds = new Set();
+      clearMarkers();
 
       document.getElementById("results").innerHTML = "";
       document.getElementById("resultCount").textContent = "0";
