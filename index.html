@@ -187,11 +187,18 @@
       background: #fafafa;
       font-size: 14px;
       cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .business-card:hover {
       background: #eef2ff;
       border-color: #2563eb;
+    }
+
+    .business-card.highlighted {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
     }
 
     .business-card strong { font-size: 15px; }
@@ -207,6 +214,16 @@
     }
 
     a { word-break: break-word; }
+
+    .info-window-content {
+      max-width: 280px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .info-window-content strong {
+      font-size: 15px;
+    }
 
     @media (max-width: 700px) {
       #panel {
@@ -435,6 +452,9 @@
     let isSlidingPanel = false;
     let savedCircleRadius = 500;
 
+    let lastMapClickTime = 0;
+    const CUSTOM_DOUBLE_CLICK_MS = 850;
+
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
     const MIN_PANEL_WIDTH = 0;
     const MAX_PANEL_WIDTH = 760;
@@ -453,8 +473,15 @@
 
       placesService = new google.maps.places.PlacesService(map);
 
-      map.addListener("dblclick", function(event) {
-        placeCircle(event.latLng);
+      map.addListener("click", function(event) {
+        const now = Date.now();
+
+        if (now - lastMapClickTime <= CUSTOM_DOUBLE_CLICK_MS) {
+          placeCircle(event.latLng);
+          lastMapClickTime = 0;
+        } else {
+          lastMapClickTime = now;
+        }
       });
 
       document.getElementById("radiusSlider").addEventListener("input", function() {
@@ -1016,6 +1043,7 @@
 
         const card = document.createElement("div");
         card.className = "business-card";
+        card.id = `business-card-${business.placeId}`;
 
         const websiteText = business.website
           ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
@@ -1062,8 +1090,20 @@
         title: business.name
       });
 
+      marker.addListener("mouseover", function() {
+        showInfoWindow(business, marker);
+      });
+
+      marker.addListener("mouseout", function() {
+        if (activeInfoWindow) {
+          activeInfoWindow.close();
+          activeInfoWindow = null;
+        }
+      });
+
       marker.addListener("click", function() {
         showInfoWindow(business, marker);
+        scrollToBusinessListing(business);
       });
 
       business.marker = marker;
@@ -1082,18 +1122,64 @@
       showInfoWindow(business, business.marker);
     }
 
+    function scrollToBusinessListing(business) {
+      const panel = document.getElementById("panel");
+      const hideButton = document.getElementById("panelToggle");
+
+      if (panel.classList.contains("closed")) {
+        panel.classList.remove("closed");
+        hideButton.textContent = "Hide";
+        updateFloatingButtons();
+      }
+
+      const card = document.getElementById(`business-card-${business.placeId}`);
+
+      if (!card) {
+        return;
+      }
+
+      card.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+
+      card.classList.add("highlighted");
+
+      setTimeout(function() {
+        card.classList.remove("highlighted");
+      }, 1000);
+    }
+
+    function buildInfoWindowContent(business) {
+      const websiteSection = business.website
+        ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
+        : `<span class="missing">No website found</span>`;
+
+      return `
+        <div class="info-window-content">
+          <strong>${escapeHtml(business.name)}</strong><br>
+          ${escapeHtml(business.address)}<br><br>
+
+          Phone: ${escapeHtml(business.phone || "Not found")}<br>
+          Website: ${websiteSection}<br>
+          Rating: ${escapeHtml(String(business.rating || "Not found"))}
+          ${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>
+          Last Review Date: ${escapeHtml(business.latestReviewDate || "Not found")}<br>
+          Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
+          Types: ${escapeHtml(business.types || "Not found")}<br>
+
+          ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open in Google Maps</a>` : ""}
+        </div>
+      `;
+    }
+
     function showInfoWindow(business, marker) {
       if (activeInfoWindow) {
         activeInfoWindow.close();
       }
 
       activeInfoWindow = new google.maps.InfoWindow({
-        content: `
-          <strong>${escapeHtml(business.name)}</strong><br>
-          ${escapeHtml(business.address)}<br>
-          Rating: ${escapeHtml(String(business.rating || "Not found"))}<br>
-          Last Review: ${escapeHtml(business.latestReviewDate || "Not found")}
-        `
+        content: buildInfoWindowContent(business)
       });
 
       activeInfoWindow.open(map, marker);
