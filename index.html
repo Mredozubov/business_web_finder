@@ -278,10 +278,8 @@
           <option value="rating-asc">Rating Low-High</option>
           <option value="review-desc">Last Review Newest-Oldest</option>
           <option value="review-asc">Last Review Oldest-Newest</option>
-          <option value="website-top">Has Website On Top</option>
-          <option value="website-bottom">Has Website On Bottom</option>
-          <option value="no-website-top">No Website On Top</option>
-          <option value="no-website-bottom">No Website On Bottom</option>
+          <option value="has-website">Has Website</option>
+          <option value="no-website">Doesn't Have Website</option>
         </select>
 
         <button onclick="exportCSV()" class="green">Export CSV</button>
@@ -794,6 +792,7 @@
       };
     }
 
+    
     function renderResults() {
       const resultsDiv = document.getElementById("results");
       const countSpan = document.getElementById("resultCount");
@@ -821,20 +820,12 @@
         if (sortValue === "review-desc") return Number(b.latestReviewTimestamp || 0) - Number(a.latestReviewTimestamp || 0);
         if (sortValue === "review-asc") return Number(a.latestReviewTimestamp || 0) - Number(b.latestReviewTimestamp || 0);
 
-        if (sortValue === "website-top") {
+        if (sortValue === "has-website") {
           return Number(Boolean(b.website)) - Number(Boolean(a.website));
         }
-
-        if (sortValue === "website-bottom") {
-          return Number(Boolean(a.website)) - Number(Boolean(b.website));
-        }
-
-        if (sortValue === "no-website-top") {
+        
+        if (sortValue === "no-website") {
           return Number(!b.website) - Number(!a.website);
-        }
-
-        if (sortValue === "no-website-bottom") {
-          return Number(!a.website) - Number(!b.website);
         }
 
         return 0;
