@@ -88,11 +88,11 @@
     }
 
     #panelDragEdge {
-      position: absolute;
-      left: 0;
+      position: fixed;
       top: 0;
-      width: 12px;
-      height: 100%;
+      right: 390px;
+      width: 14px;
+      height: 100vh;
       background: repeating-linear-gradient(
         180deg,
         #111827,
@@ -101,23 +101,25 @@
         #374151 16px
       );
       cursor: ew-resize;
-      z-index: 12;
+      z-index: 13;
+      touch-action: none;
+      box-shadow: -1px 0 8px rgba(0,0,0,0.25);
     }
 
     #panelDragEdge::after {
       content: "⋮";
       position: absolute;
       top: 50%;
-      left: 1px;
+      left: 2px;
       transform: translateY(-50%);
       color: white;
-      font-size: 26px;
+      font-size: 28px;
       font-weight: bold;
     }
 
     .floating-button {
       position: fixed;
-      z-index: 11;
+      z-index: 14;
       width: auto;
       min-width: 78px;
       padding: 12px 14px;
@@ -232,6 +234,13 @@
       background: white;
     }
 
+    #businessTypeEmpty {
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.4;
+      padding: 8px 2px;
+    }
+
     .type-option {
       display: flex;
       align-items: center;
@@ -341,10 +350,11 @@
       }
 
       #panelDragEdge {
-        width: 100%;
-        height: 12px;
-        top: 0;
-        left: 0;
+        top: auto;
+        bottom: 58vh;
+        right: 0;
+        width: 100vw;
+        height: 14px;
         cursor: ns-resize;
         background: repeating-linear-gradient(
           90deg,
@@ -357,14 +367,14 @@
 
       #panelDragEdge::after {
         content: "⋯";
-        top: -8px;
+        top: -9px;
         left: 50%;
         transform: translateX(-50%);
       }
 
       #panelToggle {
         top: auto;
-        bottom: 58vh;
+        bottom: calc(58vh + 14px);
         right: 12px;
         border-radius: 10px 10px 0 0;
       }
@@ -389,8 +399,6 @@
     </div>
 
     <div id="panel">
-      <div id="panelDragEdge"></div>
-
       <h2>Business Area Scanner</h2>
 
       <button id="settingsButton" class="settings" onclick="toggleSearchSettings()">⚙️ Search Settings ↓</button>
@@ -398,26 +406,10 @@
       <div id="searchSettings">
         <label>Filter Business Type</label>
         <div id="businessTypeBox">
-          <label class="type-option"><input type="checkbox" value="bakery" checked onchange="renderResults()">Bakery</label>
-          <label class="type-option"><input type="checkbox" value="bank" checked onchange="renderResults()">Bank</label>
-          <label class="type-option"><input type="checkbox" value="bar" checked onchange="renderResults()">Bar</label>
-          <label class="type-option"><input type="checkbox" value="beauty_salon" checked onchange="renderResults()">Beauty Salon</label>
-          <label class="type-option"><input type="checkbox" value="cafe" checked onchange="renderResults()">Cafe</label>
-          <label class="type-option"><input type="checkbox" value="car_repair" checked onchange="renderResults()">Car Repair</label>
-          <label class="type-option"><input type="checkbox" value="clothing_store" checked onchange="renderResults()">Clothing</label>
-          <label class="type-option"><input type="checkbox" value="dentist" checked onchange="renderResults()">Dentist</label>
-          <label class="type-option"><input type="checkbox" value="doctor" checked onchange="renderResults()">Doctor / Medical</label>
-          <label class="type-option"><input type="checkbox" value="electronics_store" checked onchange="renderResults()">Electronics</label>
-          <label class="type-option"><input type="checkbox" value="food" checked onchange="renderResults()">Food</label>
-          <label class="type-option"><input type="checkbox" value="gym" checked onchange="renderResults()">Gym</label>
-          <label class="type-option"><input type="checkbox" value="hair_care" checked onchange="renderResults()">Hair Care</label>
-          <label class="type-option"><input type="checkbox" value="home_goods_store" checked onchange="renderResults()">Home Goods</label>
-          <label class="type-option"><input type="checkbox" value="liquor_store" checked onchange="renderResults()">Liquor</label>
-          <label class="type-option"><input type="checkbox" value="meal_takeaway" checked onchange="renderResults()">Meal Takeaway</label>
-          <label class="type-option"><input type="checkbox" value="pharmacy" checked onchange="renderResults()">Pharmacy</label>
-          <label class="type-option"><input type="checkbox" value="restaurant" checked onchange="renderResults()">Restaurant</label>
-          <label class="type-option"><input type="checkbox" value="store" checked onchange="renderResults()">Store</label>
-          <label class="type-option"><input type="checkbox" value="supermarket" checked onchange="renderResults()">Supermarket</label>
+          <div id="businessTypeEmpty">
+            No businesses scanned<br>
+            Create and scan an area by double clicking the map
+          </div>
         </div>
 
         <button onclick="selectAllBusinessTypes()" class="secondary">Select All Types</button>
@@ -463,13 +455,14 @@
         <div id="progressInner">0%</div>
       </div>
 
-      <button id="clearResultsButton" onclick="clearResults()" class="danger">Clear Results</button>
+      <button id="clearResultsButton" onclick="clearResults()" class="danger">🧹 Clear Results</button>
 
       <h3>Results: <span id="resultCount">0</span></h3>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
       <div id="results"></div>
     </div>
 
+    <div id="panelDragEdge"></div>
     <button id="panelToggle" class="floating-button" onclick="togglePanel()">Hide</button>
   </div>
 
@@ -495,6 +488,8 @@
     const CUSTOM_DOUBLE_CLICK_MS = 850;
 
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
+    const DEFAULT_PANEL_WIDTH = 390;
+    const DEFAULT_PANEL_HEIGHT_RATIO = 0.58;
     const MIN_PANEL_WIDTH = 0;
     const MAX_PANEL_WIDTH = 760;
     const MIN_PANEL_HEIGHT = 0;
@@ -538,9 +533,11 @@
       document.getElementById("panel").addEventListener("scroll", updateBackToTopButton);
 
       updateRadiusLabel(savedCircleRadiusFeet);
+      resetPanelForCurrentOrientation();
       setupPanelSlider();
       updateFloatingButtons();
       updateRemoveCircleButton();
+      updateBusinessTypeFilter();
       updateStatus("Ready. Double-click the map to place your scan circle.");
     }
 
@@ -550,6 +547,28 @@
 
     function metersToFeet(meters) {
       return meters / 0.3048;
+    }
+
+    function resetPanelForCurrentOrientation() {
+      const panel = document.getElementById("panel");
+
+      panel.style.transition = "none";
+
+      if (window.innerWidth <= 700) {
+        panel.style.width = "100vw";
+        panel.style.height = Math.round(window.innerHeight * DEFAULT_PANEL_HEIGHT_RATIO) + "px";
+      } else {
+        panel.style.width = DEFAULT_PANEL_WIDTH + "px";
+        panel.style.height = "100vh";
+      }
+
+      panel.classList.remove("closed");
+
+      requestAnimationFrame(function() {
+        panel.style.transition = "transform 0.2s ease";
+        document.getElementById("panelToggle").textContent = "Hide";
+        updateFloatingButtons();
+      });
     }
 
     function setupPanelSlider() {
@@ -615,18 +634,40 @@
     function updateFloatingButtons() {
       const panel = document.getElementById("panel");
       const panelToggle = document.getElementById("panelToggle");
+      const dragEdge = document.getElementById("panelDragEdge");
 
       if (window.innerWidth <= 700) {
         const panelHeight = panel.classList.contains("closed") ? 0 : panel.offsetHeight;
-        panelToggle.style.bottom = panelHeight + "px";
+
+        dragEdge.style.bottom = panelHeight + "px";
+        dragEdge.style.right = "0px";
+
+        panelToggle.style.bottom = (panelHeight + 14) + "px";
         panelToggle.style.right = "12px";
       } else {
         const panelWidth = panel.classList.contains("closed") ? 0 : panel.offsetWidth;
-        panelToggle.style.right = panelWidth + "px";
+
+        dragEdge.style.right = panelWidth + "px";
+        dragEdge.style.bottom = "auto";
+
+        panelToggle.style.right = (panelWidth + 14) + "px";
       }
     }
 
-    window.addEventListener("resize", updateFloatingButtons);
+    let resizeResetTimer = null;
+
+    window.addEventListener("resize", function() {
+      clearTimeout(resizeResetTimer);
+      resizeResetTimer = setTimeout(function() {
+        resetPanelForCurrentOrientation();
+      }, 150);
+    });
+
+    window.addEventListener("orientationchange", function() {
+      setTimeout(function() {
+        resetPanelForCurrentOrientation();
+      }, 250);
+    });
 
     function togglePanel() {
       const panel = document.getElementById("panel");
@@ -643,6 +684,70 @@
 
       settings.classList.toggle("open");
       button.textContent = settings.classList.contains("open") ? "⚙️ Search Settings ↑" : "⚙️ Search Settings ↓";
+    }
+
+    function formatBusinessType(type) {
+      return type
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, function(letter) {
+          return letter.toUpperCase();
+        });
+    }
+
+    function updateBusinessTypeFilter() {
+      const box = document.getElementById("businessTypeBox");
+      box.innerHTML = "";
+
+      if (allBusinesses.length === 0) {
+        box.innerHTML = `
+          <div id="businessTypeEmpty">
+            No businesses scanned<br>
+            Create and scan an area by double clicking the map
+          </div>
+        `;
+        return;
+      }
+
+      const typeSet = new Set();
+
+      for (const business of allBusinesses) {
+        if (!business.typesRaw) continue;
+
+        for (const type of business.typesRaw) {
+          if (type) {
+            typeSet.add(type);
+          }
+        }
+      }
+
+      const types = Array.from(typeSet).sort(function(a, b) {
+        return formatBusinessType(a).localeCompare(formatBusinessType(b));
+      });
+
+      if (types.length === 0) {
+        box.innerHTML = `
+          <div id="businessTypeEmpty">
+            No business types found from scanned results.
+          </div>
+        `;
+        return;
+      }
+
+      for (const type of types) {
+        const label = document.createElement("label");
+        label.className = "type-option";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = type;
+        checkbox.checked = true;
+        checkbox.addEventListener("change", renderResults);
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(formatBusinessType(type)));
+
+        box.appendChild(label);
+      }
     }
 
     function selectAllBusinessTypes() {
@@ -669,6 +774,7 @@
     }
 
     function businessMatchesSelectedType(business, selectedTypes) {
+      if (allBusinesses.length === 0) return false;
       if (selectedTypes.length === 0) return false;
       if (!business.typesRaw || business.typesRaw.length === 0) return false;
 
@@ -950,6 +1056,7 @@
         await wait(350);
       }
 
+      updateBusinessTypeFilter();
       updateStatus(`Finished. Found ${allBusinesses.length} unique businesses.`);
       updateProgress(100);
       document.getElementById("clearResultsButton").style.display = allBusinesses.length > 0 ? "block" : "none";
@@ -960,8 +1067,7 @@
       return new Promise((resolve) => {
         const request = {
           location: location,
-          radius: radius,
-          type: "establishment"
+          radius: radius
         };
 
         placesService.nearbySearch(request, async function(results, status, pagination) {
@@ -1382,6 +1488,7 @@
       allBusinesses = [];
       seenPlaceIds = new Set();
       clearMarkers();
+      updateBusinessTypeFilter();
 
       document.getElementById("results").innerHTML = "";
       document.getElementById("resultCount").textContent = "0";
