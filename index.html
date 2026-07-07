@@ -187,14 +187,18 @@
 
     <aside class="panel">
       <div class="warning">
-        This is a static front-end demo. Your API key is visible in the browser,
-        so restrict the key by website domain inside Google Cloud.
+        Your API key is inside this website code. Make sure the key is restricted to your website domain.
       </div>
 
       <div class="controls">
         <div>
           <label for="searchText">Business keyword</label>
-          <input id="searchText" type="text" value="business" placeholder="Example: restaurant, store, dentist, business" />
+          <input
+            id="searchText"
+            type="text"
+            value="business"
+            placeholder="Example: restaurant, store, dentist, business"
+          />
         </div>
 
         <div>
@@ -211,7 +215,9 @@
         <button id="clearBtn" class="danger">Clear Area & Results</button>
       </div>
 
-      <div id="status" class="status">Click the map once for corner 1, then click again for corner 2.</div>
+      <div id="status" class="status">
+        Click the map once for corner 1, then click again for corner 2.
+      </div>
 
       <div class="result-count" id="resultCount">Results: 0</div>
 
@@ -229,13 +235,30 @@
     let businesses = [];
     let isScanning = false;
 
-    const DEFAULT_CENTER = { lat: 40.6782, lng: -73.9442 };
+    const DEFAULT_CENTER = {
+      lat: 40.6782,
+      lng: -73.9442
+    };
 
-    const statusBox = () => document.getElementById("status");
-    const resultsBox = () => document.getElementById("results");
-    const resultCount = () => document.getElementById("resultCount");
-    const scanBtn = () => document.getElementById("scanBtn");
-    const exportBtn = () => document.getElementById("exportBtn");
+    function getStatusBox() {
+      return document.getElementById("status");
+    }
+
+    function getResultsBox() {
+      return document.getElementById("results");
+    }
+
+    function getResultCount() {
+      return document.getElementById("resultCount");
+    }
+
+    function getScanButton() {
+      return document.getElementById("scanBtn");
+    }
+
+    function getExportButton() {
+      return document.getElementById("exportBtn");
+    }
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
@@ -256,7 +279,8 @@
       document.getElementById("clearBtn").addEventListener("click", clearAll);
       document.getElementById("exportBtn").addEventListener("click", exportCSV);
 
-      statusBox().textContent = "Click the map once for corner 1, then click again for corner 2.";
+      getStatusBox().textContent =
+        "Click the map once for corner 1, then click again for corner 2.";
     }
 
     function handleMapClick(latLng) {
@@ -268,7 +292,8 @@
         clearSelectionOnly();
         cornerOne = latLng;
         addCornerMarker(latLng, "1");
-        statusBox().textContent = "Corner 1 selected. Now click the opposite corner.";
+        getStatusBox().textContent =
+          "Corner 1 selected. Now click the opposite corner.";
         return;
       }
 
@@ -276,15 +301,17 @@
         cornerTwo = latLng;
         addCornerMarker(latLng, "2");
         drawRectangle();
-        scanBtn().disabled = false;
-        statusBox().textContent = "Area selected. Click “Scan Selected Area”.";
+        getScanButton().disabled = false;
+        getStatusBox().textContent =
+          "Area selected. Click “Scan Selected Area”.";
         return;
       }
 
       clearAll();
       cornerOne = latLng;
       addCornerMarker(latLng, "1");
-      statusBox().textContent = "New corner 1 selected. Now click the opposite corner.";
+      getStatusBox().textContent =
+        "New corner 1 selected. Now click the opposite corner.";
     }
 
     function addCornerMarker(latLng, label) {
@@ -336,26 +363,29 @@
       clearBusinessMarkers();
       renderResults();
 
-      scanBtn().disabled = true;
-      exportBtn().disabled = true;
+      getScanButton().disabled = true;
+      getExportButton().disabled = true;
 
-      const keyword = document.getElementById("searchText").value.trim() || "business";
-      const spacingMeters = Number(document.getElementById("gridSpacing").value);
+      const keyword =
+        document.getElementById("searchText").value.trim() || "business";
+
+      const spacingMeters = Number(
+        document.getElementById("gridSpacing").value
+      );
 
       const bounds = selectedRectangle.getBounds();
       const points = createGridPoints(bounds, spacingMeters);
+      const seenPlaceIds = new Set();
 
-      statusBox().textContent =
+      getStatusBox().textContent =
         "Scanning area...\n" +
         "Grid points: " + points.length + "\n" +
         "This may take a little while if the area is large.";
 
-      const seenPlaceIds = new Set();
-
       for (let i = 0; i < points.length; i++) {
         const point = points[i];
 
-        statusBox().textContent =
+        getStatusBox().textContent =
           "Scanning area...\n" +
           "Point " + (i + 1) + " of " + points.length + "\n" +
           "Businesses found so far: " + businesses.length;
@@ -373,6 +403,10 @@
             }
 
             seenPlaceIds.add(place.place_id);
+
+            if (!place.geometry || !place.geometry.location) {
+              continue;
+            }
 
             if (!bounds.contains(place.geometry.location)) {
               continue;
@@ -400,17 +434,17 @@
             await sleep(120);
           }
         } catch (error) {
-          console.error("Search error:", error);
+          console.error(error);
         }
 
         await sleep(250);
       }
 
       isScanning = false;
-      scanBtn().disabled = false;
-      exportBtn().disabled = businesses.length === 0;
+      getScanButton().disabled = false;
+      getExportButton().disabled = businesses.length === 0;
 
-      statusBox().textContent =
+      getStatusBox().textContent =
         "Scan complete.\n" +
         "Businesses found: " + businesses.length;
     }
@@ -427,7 +461,8 @@
       const centerLat = (north + south) / 2;
 
       const metersPerDegreeLat = 111320;
-      const metersPerDegreeLng = 111320 * Math.cos(centerLat * Math.PI / 180);
+      const metersPerDegreeLng =
+        111320 * Math.cos(centerLat * Math.PI / 180);
 
       const latStep = spacingMeters / metersPerDegreeLat;
       const lngStep = spacingMeters / metersPerDegreeLng;
@@ -440,14 +475,13 @@
         }
       }
 
-      const center = bounds.getCenter();
-      points.push(center);
+      points.push(bounds.getCenter());
 
       return points;
     }
 
     function nearbySearch(location, keyword, spacingMeters) {
-      return new Promise((resolve, reject) => {
+      return new Promise(function(resolve, reject) {
         const request = {
           location: location,
           radius: Math.min(Math.max(spacingMeters, 300), 50000),
@@ -466,8 +500,10 @@
           }
 
           if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-            setTimeout(() => {
-              nearbySearch(location, keyword).then(resolve).catch(reject);
+            setTimeout(function() {
+              nearbySearch(location, keyword, spacingMeters)
+                .then(resolve)
+                .catch(reject);
             }, 1000);
             return;
           }
@@ -478,7 +514,7 @@
     }
 
     function getPlaceDetails(placeId) {
-      return new Promise((resolve, reject) => {
+      return new Promise(function(resolve) {
         const request = {
           placeId: placeId,
           fields: [
@@ -499,8 +535,8 @@
           }
 
           if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-            setTimeout(() => {
-              getPlaceDetails(placeId).then(resolve).catch(reject);
+            setTimeout(function() {
+              getPlaceDetails(placeId).then(resolve);
             }, 1000);
             return;
           }
@@ -543,39 +579,61 @@
         marker.setMap(null);
       }
 
-      markers = markers.filter(marker => {
+      markers = markers.filter(function(marker) {
         return marker.getLabel && marker.getLabel();
       });
     }
 
     function renderResults() {
-      resultCount().textContent = "Results: " + businesses.length;
+      getResultCount().textContent = "Results: " + businesses.length;
 
       if (businesses.length === 0) {
-        resultsBox().innerHTML = "";
+        getResultsBox().innerHTML = "";
         return;
       }
 
-      resultsBox().innerHTML = businesses.map((business, index) => {
+      getResultsBox().innerHTML = businesses.map(function(business, index) {
         const websiteHTML = business.website
-          ? '<p><strong>Website:</strong> <a href="' + escapeAttribute(business.website) + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(business.website) + '</a></p>'
-          : '<p><strong>Website:</strong> Not found</p>';
+          ? '<p><strong>Website:</strong> <a href="' +
+            escapeAttribute(business.website) +
+            '" target="_blank" rel="noopener noreferrer">' +
+            escapeHTML(business.website) +
+            "</a></p>"
+          : "<p><strong>Website:</strong> Not found</p>";
 
         const mapsHTML = business.googleMapsUrl
-          ? '<p><a href="' + escapeAttribute(business.googleMapsUrl) + '" target="_blank" rel="noopener noreferrer">Open in Google Maps</a></p>'
+          ? '<p><a href="' +
+            escapeAttribute(business.googleMapsUrl) +
+            '" target="_blank" rel="noopener noreferrer">Open in Google Maps</a></p>'
           : "";
 
         return (
           '<div class="business-card">' +
-            '<h3>' + (index + 1) + '. ' + escapeHTML(business.name) + '</h3>' +
-            '<p><strong>Address:</strong> ' + escapeHTML(business.address || "Not found") + '</p>' +
-            '<p><strong>Phone:</strong> ' + escapeHTML(business.phone || "Not found") + '</p>' +
+            "<h3>" +
+              (index + 1) +
+              ". " +
+              escapeHTML(business.name) +
+            "</h3>" +
+            "<p><strong>Address:</strong> " +
+              escapeHTML(business.address || "Not found") +
+            "</p>" +
+            "<p><strong>Phone:</strong> " +
+              escapeHTML(business.phone || "Not found") +
+            "</p>" +
             websiteHTML +
-            '<p><strong>Rating:</strong> ' + escapeHTML(String(business.rating || "Not found")) + '</p>' +
-            '<p><strong>Reviews:</strong> ' + escapeHTML(String(business.userRatingsTotal || "Not found")) + '</p>' +
-            '<p class="small"><strong>Lat/Lng:</strong> ' + business.latitude + ', ' + business.longitude + '</p>' +
+            "<p><strong>Rating:</strong> " +
+              escapeHTML(String(business.rating || "Not found")) +
+            "</p>" +
+            "<p><strong>Reviews:</strong> " +
+              escapeHTML(String(business.userRatingsTotal || "Not found")) +
+            "</p>" +
+            '<p class="small"><strong>Lat/Lng:</strong> ' +
+              business.latitude +
+              ", " +
+              business.longitude +
+            "</p>" +
             mapsHTML +
-          '</div>'
+          "</div>"
         );
       }).join("");
     }
@@ -598,24 +656,23 @@
         "Place ID"
       ];
 
-      const rows = businesses.map(business => [
-        business.name,
-        business.address,
-        business.phone,
-        business.website,
-        business.rating,
-        business.userRatingsTotal,
-        business.googleMapsUrl,
-        business.latitude,
-        business.longitude,
-        business.placeId
-      ]);
+      const rows = businesses.map(function(business) {
+        return [
+          business.name,
+          business.address,
+          business.phone,
+          business.website,
+          business.rating,
+          business.userRatingsTotal,
+          business.googleMapsUrl,
+          business.latitude,
+          business.longitude,
+          business.placeId
+        ];
+      });
 
-      const csvContent = [
-        headers,
-        ...rows
-      ].map(row => {
-        return row.map(value => {
+      const csvContent = [headers].concat(rows).map(function(row) {
+        return row.map(function(value) {
           const safeValue = String(value ?? "").replace(/"/g, '""');
           return '"' + safeValue + '"';
         }).join(",");
@@ -630,6 +687,7 @@
 
       link.href = url;
       link.download = "business-results.csv";
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -641,10 +699,13 @@
       clearSelectionOnly();
       businesses = [];
       renderResults();
-      resultCount().textContent = "Results: 0";
-      scanBtn().disabled = true;
-      exportBtn().disabled = true;
-      statusBox().textContent = "Click the map once for corner 1, then click again for corner 2.";
+
+      getResultCount().textContent = "Results: 0";
+      getScanButton().disabled = true;
+      getExportButton().disabled = true;
+
+      getStatusBox().textContent =
+        "Click the map once for corner 1, then click again for corner 2.";
     }
 
     function clearSelectionOnly() {
@@ -664,7 +725,9 @@
     }
 
     function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+      return new Promise(function(resolve) {
+        setTimeout(resolve, ms);
+      });
     }
 
     function escapeHTML(value) {
@@ -684,7 +747,7 @@
   </script>
 
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY_HERE&libraries=places&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDUx6QIBzCxqNr3_2G1L2iSmn0dT9dRLro&libraries=places&callback=initMap"
     async
     defer>
   </script>
