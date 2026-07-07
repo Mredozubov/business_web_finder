@@ -28,8 +28,8 @@
 
     #mapHint {
       position: fixed;
+      top: 16px;
       left: 16px;
-      bottom: 18px;
       z-index: 8;
       background: rgba(17, 24, 39, 0.92);
       color: white;
@@ -40,6 +40,31 @@
       pointer-events: none;
     }
 
+    #mapControls {
+      position: fixed;
+      top: 60px;
+      left: 16px;
+      z-index: 8;
+      width: 310px;
+      background: rgba(255, 255, 255, 0.96);
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    }
+
+    #mapControls label {
+      margin-top: 0;
+    }
+
+    #circleButtonRow {
+      display: flex;
+      gap: 8px;
+    }
+
+    #circleButtonRow button {
+      flex: 1;
+    }
+
     #panel {
       position: fixed;
       top: 0;
@@ -48,7 +73,7 @@
       max-width: 95vw;
       height: 100vh;
       background: white;
-      padding: 16px;
+      padding: 16px 16px 16px 22px;
       overflow-y: auto;
       border-left: 1px solid #ddd;
       box-shadow: -2px 0 12px rgba(0,0,0,0.2);
@@ -60,6 +85,34 @@
 
     #panel.closed {
       transform: translateX(100%);
+    }
+
+    #panelDragEdge {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 12px;
+      height: 100%;
+      background: repeating-linear-gradient(
+        180deg,
+        #111827,
+        #111827 8px,
+        #374151 8px,
+        #374151 16px
+      );
+      cursor: ew-resize;
+      z-index: 12;
+    }
+
+    #panelDragEdge::after {
+      content: "⋮";
+      position: absolute;
+      top: 50%;
+      left: 1px;
+      transform: translateY(-50%);
+      color: white;
+      font-size: 26px;
+      font-weight: bold;
     }
 
     .floating-button {
@@ -83,14 +136,6 @@
       top: 16px;
       right: 390px;
       border-radius: 10px 0 0 10px;
-    }
-
-    #slideToggle {
-      top: 66px;
-      right: 390px;
-      border-radius: 10px 0 0 10px;
-      background: #374151;
-      cursor: ew-resize;
     }
 
     h2 { margin-top: 0; }
@@ -130,12 +175,38 @@
     button.green { background: #16a34a; }
     button.settings { background: #7c3aed; }
 
+    button.disabled-grey {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
     #status {
       margin-top: 12px;
       padding: 10px;
       background: #f1f5f9;
       border-radius: 6px;
       font-size: 14px;
+    }
+
+    #progressOuter {
+      display: none;
+      margin-top: 10px;
+      height: 18px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #d1d5db;
+    }
+
+    #progressInner {
+      height: 100%;
+      width: 0%;
+      background: #2563eb;
+      color: white;
+      font-size: 12px;
+      line-height: 18px;
+      text-align: center;
+      transition: width 0.2s ease;
     }
 
     #searchSettings {
@@ -185,7 +256,9 @@
       position: sticky;
       top: 0;
       z-index: 20;
-      background: #111827;
+      background: white;
+      color: #111827;
+      border: 2px solid #111827;
       margin-bottom: 10px;
     }
 
@@ -236,6 +309,20 @@
     }
 
     @media (max-width: 700px) {
+      #mapHint {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        text-align: center;
+      }
+
+      #mapControls {
+        top: 58px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+      }
+
       #panel {
         top: auto;
         bottom: 0;
@@ -245,6 +332,7 @@
         height: 58vh;
         border-left: none;
         border-top: 1px solid #ddd;
+        padding: 22px 16px 16px 16px;
         transform: translateY(0);
       }
 
@@ -252,26 +340,33 @@
         transform: translateY(100%);
       }
 
+      #panelDragEdge {
+        width: 100%;
+        height: 12px;
+        top: 0;
+        left: 0;
+        cursor: ns-resize;
+        background: repeating-linear-gradient(
+          90deg,
+          #111827,
+          #111827 8px,
+          #374151 8px,
+          #374151 16px
+        );
+      }
+
+      #panelDragEdge::after {
+        content: "⋯";
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
       #panelToggle {
         top: auto;
         bottom: 58vh;
         right: 12px;
         border-radius: 10px 10px 0 0;
-      }
-
-      #slideToggle {
-        top: auto;
-        bottom: calc(58vh + 52px);
-        right: 12px;
-        border-radius: 10px 10px 0 0;
-        cursor: ns-resize;
-      }
-
-      #mapHint {
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
-        text-align: center;
       }
     }
   </style>
@@ -283,10 +378,22 @@
 
     <div id="mapHint">Hint: double-click the map to place the scan circle</div>
 
+    <div id="mapControls">
+      <label>Circle Radius: <span id="radiusLabel">500 feet</span></label>
+      <input id="radiusSlider" type="range" min="50" max="10000" step="50" value="500" />
+
+      <div id="circleButtonRow">
+        <button onclick="scanCircle()">🔍 Scan Circle</button>
+        <button id="removeCircleButton" onclick="removeCircle()" class="disabled-grey">🗑️ Remove Circle</button>
+      </div>
+    </div>
+
     <div id="panel">
+      <div id="panelDragEdge"></div>
+
       <h2>Business Area Scanner</h2>
 
-      <button id="settingsButton" class="settings" onclick="toggleSearchSettings()">Search Settings ↓</button>
+      <button id="settingsButton" class="settings" onclick="toggleSearchSettings()">⚙️ Search Settings ↓</button>
 
       <div id="searchSettings">
         <label>Filter Business Type</label>
@@ -343,30 +450,27 @@
           <option value="no-website">Doesn't Have Website</option>
         </select>
 
-        <button onclick="exportCSV()" class="green">Export CSV</button>
+        <button onclick="exportCSV()" class="green">⬇️ Export CSV</button>
       </div>
 
       <p>
-        Double-click the map to place the scan circle. Drag the center dot to move it, drag the outside handle to resize it, or use the slider below.
+        Double-click the map to place the scan circle. Drag the center dot to move it or drag the outside handle to resize it.
       </p>
 
-      <label>Circle Radius: <span id="radiusLabel">500 meters</span></label>
-      <input id="radiusSlider" type="range" min="50" max="3000" step="50" value="500" />
-
-      <button onclick="scanCircle()">Scan Circle</button>
-      <button onclick="removeCircle()" class="danger">Remove Circle</button>
-
       <div id="status">Double-click the map to place your scan circle.</div>
+
+      <div id="progressOuter">
+        <div id="progressInner">0%</div>
+      </div>
 
       <button id="clearResultsButton" onclick="clearResults()" class="danger">Clear Results</button>
 
       <h3>Results: <span id="resultCount">0</span></h3>
-      <button id="backToTopButton" onclick="scrollPanelToTop()">Back To Top</button>
+      <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
       <div id="results"></div>
     </div>
 
     <button id="panelToggle" class="floating-button" onclick="togglePanel()">Hide</button>
-    <button id="slideToggle" class="floating-button">Slide</button>
   </div>
 
   <script>
@@ -385,7 +489,7 @@
     let hoverCloseTimer = null;
 
     let isSlidingPanel = false;
-    let savedCircleRadius = 500;
+    let savedCircleRadiusFeet = 500;
 
     let lastMapClickTime = 0;
     const CUSTOM_DOUBLE_CLICK_MS = 850;
@@ -420,35 +524,45 @@
       });
 
       document.getElementById("radiusSlider").addEventListener("input", function() {
-        const newRadius = Number(this.value);
-        savedCircleRadius = newRadius;
-        updateRadiusLabel(newRadius);
+        const newRadiusFeet = Number(this.value);
+        savedCircleRadiusFeet = newRadiusFeet;
+        updateRadiusLabel(newRadiusFeet);
 
         if (circle) {
-          circle.setRadius(newRadius);
-          resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+          const newRadiusMeters = feetToMeters(newRadiusFeet);
+          circle.setRadius(newRadiusMeters);
+          resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadiusMeters));
         }
       });
 
       document.getElementById("panel").addEventListener("scroll", updateBackToTopButton);
 
-      updateRadiusLabel(savedCircleRadius);
+      updateRadiusLabel(savedCircleRadiusFeet);
       setupPanelSlider();
       updateFloatingButtons();
+      updateRemoveCircleButton();
       updateStatus("Ready. Double-click the map to place your scan circle.");
     }
 
-    function setupPanelSlider() {
-      const slideButton = document.getElementById("slideToggle");
+    function feetToMeters(feet) {
+      return feet * 0.3048;
+    }
 
-      slideButton.addEventListener("pointerdown", function(event) {
+    function metersToFeet(meters) {
+      return meters / 0.3048;
+    }
+
+    function setupPanelSlider() {
+      const dragEdge = document.getElementById("panelDragEdge");
+
+      dragEdge.addEventListener("pointerdown", function(event) {
         event.preventDefault();
         isSlidingPanel = true;
         document.getElementById("panel").style.transition = "none";
-        slideButton.setPointerCapture(event.pointerId);
+        dragEdge.setPointerCapture(event.pointerId);
       });
 
-      slideButton.addEventListener("pointermove", function(event) {
+      dragEdge.addEventListener("pointermove", function(event) {
         if (!isSlidingPanel) return;
 
         const panel = document.getElementById("panel");
@@ -484,14 +598,14 @@
         updateFloatingButtons();
       });
 
-      slideButton.addEventListener("pointerup", function(event) {
+      dragEdge.addEventListener("pointerup", function(event) {
         isSlidingPanel = false;
         document.getElementById("panel").style.transition = "transform 0.2s ease";
-        slideButton.releasePointerCapture(event.pointerId);
+        dragEdge.releasePointerCapture(event.pointerId);
         updateFloatingButtons();
       });
 
-      slideButton.addEventListener("pointercancel", function() {
+      dragEdge.addEventListener("pointercancel", function() {
         isSlidingPanel = false;
         document.getElementById("panel").style.transition = "transform 0.2s ease";
         updateFloatingButtons();
@@ -501,21 +615,14 @@
     function updateFloatingButtons() {
       const panel = document.getElementById("panel");
       const panelToggle = document.getElementById("panelToggle");
-      const slideToggle = document.getElementById("slideToggle");
 
       if (window.innerWidth <= 700) {
         const panelHeight = panel.classList.contains("closed") ? 0 : panel.offsetHeight;
-
         panelToggle.style.bottom = panelHeight + "px";
-        slideToggle.style.bottom = (panelHeight + 52) + "px";
-
         panelToggle.style.right = "12px";
-        slideToggle.style.right = "12px";
       } else {
         const panelWidth = panel.classList.contains("closed") ? 0 : panel.offsetWidth;
-
         panelToggle.style.right = panelWidth + "px";
-        slideToggle.style.right = panelWidth + "px";
       }
     }
 
@@ -535,7 +642,7 @@
       const button = document.getElementById("settingsButton");
 
       settings.classList.toggle("open");
-      button.textContent = settings.classList.contains("open") ? "Search Settings ↑" : "Search Settings ↓";
+      button.textContent = settings.classList.contains("open") ? "⚙️ Search Settings ↑" : "⚙️ Search Settings ↓";
     }
 
     function selectAllBusinessTypes() {
@@ -562,13 +669,8 @@
     }
 
     function businessMatchesSelectedType(business, selectedTypes) {
-      if (selectedTypes.length === 0) {
-        return false;
-      }
-
-      if (!business.typesRaw || business.typesRaw.length === 0) {
-        return false;
-      }
+      if (selectedTypes.length === 0) return false;
+      if (!business.typesRaw || business.typesRaw.length === 0) return false;
 
       return business.typesRaw.some(function(type) {
         return selectedTypes.includes(type);
@@ -578,12 +680,12 @@
     function placeCircle(center) {
       removeCircleOnly();
 
-      const radiusToUse = savedCircleRadius;
+      const radiusMeters = feetToMeters(savedCircleRadiusFeet);
 
       circle = new google.maps.Circle({
         map: map,
         center: center,
-        radius: radiusToUse,
+        radius: radiusMeters,
         clickable: false,
         draggable: false,
         editable: false,
@@ -608,13 +710,13 @@
 
       resizeMarker = new google.maps.Marker({
         map: map,
-        position: getResizeMarkerPosition(center, radiusToUse),
+        position: getResizeMarkerPosition(center, radiusMeters),
         draggable: true,
         title: "Drag to resize scan circle",
         icon: {
           url: makeResizeHandleIcon(),
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 16)
+          scaledSize: new google.maps.Size(34, 34),
+          anchor: new google.maps.Point(17, 17)
         }
       });
 
@@ -631,28 +733,28 @@
       });
 
       resizeMarker.addListener("drag", function(event) {
-        const newRadius = distanceMeters(
+        const newRadiusMeters = distanceMeters(
           circle.getCenter().lat(),
           circle.getCenter().lng(),
           event.latLng.lat(),
           event.latLng.lng()
         );
 
-        savedCircleRadius = Math.max(50, Math.min(3000, Math.round(newRadius)));
-        circle.setRadius(savedCircleRadius);
-        document.getElementById("radiusSlider").value = savedCircleRadius;
-        updateRadiusLabel(savedCircleRadius);
+        savedCircleRadiusFeet = Math.max(50, Math.min(10000, Math.round(metersToFeet(newRadiusMeters))));
+        circle.setRadius(feetToMeters(savedCircleRadiusFeet));
+        document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
+        updateRadiusLabel(savedCircleRadiusFeet);
       });
 
       resizeMarker.addListener("dragend", function() {
-        savedCircleRadius = Math.round(circle.getRadius());
-        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), savedCircleRadius));
-        document.getElementById("radiusSlider").value = savedCircleRadius;
-        updateRadiusLabel(savedCircleRadius);
+        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), feetToMeters(savedCircleRadiusFeet)));
+        document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
+        updateRadiusLabel(savedCircleRadiusFeet);
       });
 
-      document.getElementById("radiusSlider").value = radiusToUse;
-      updateRadiusLabel(radiusToUse);
+      document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
+      updateRadiusLabel(savedCircleRadiusFeet);
+      updateRemoveCircleButton();
       updateStatus("Circle placed. Drag the center dot to move it or drag the outside handle to resize it.");
     }
 
@@ -669,11 +771,12 @@
 
     function makeResizeHandleIcon() {
       const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-          <circle cx="16" cy="16" r="13" fill="white" stroke="#2563eb" stroke-width="4"/>
-          <path d="M10 16H22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
-          <path d="M16 10V22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
-          <path d="M9 9L5 5M23 9L27 5M9 23L5 27M23 23L27 27" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+          <circle cx="17" cy="17" r="14" fill="white" stroke="#2563eb" stroke-width="4"/>
+          <path d="M8 17H26" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+          <path d="M17 8V26" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+          <path d="M9 9L4 4M25 9L30 4M9 25L4 30M25 25L30 30" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M4 4H10M4 4V10M30 4H24M30 4V10M4 30H10M4 30V24M30 30H24M30 30V24" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
         </svg>
       `;
 
@@ -691,8 +794,20 @@
       };
     }
 
-    function updateRadiusLabel(radius) {
-      document.getElementById("radiusLabel").textContent = `${Math.round(radius)} meters`;
+    function updateRadiusLabel(radiusFeet) {
+      document.getElementById("radiusLabel").textContent = `${Math.round(radiusFeet)} feet`;
+    }
+
+    function updateRemoveCircleButton() {
+      const button = document.getElementById("removeCircleButton");
+
+      if (circle) {
+        button.classList.remove("disabled-grey");
+        button.classList.add("danger");
+      } else {
+        button.classList.remove("danger");
+        button.classList.add("disabled-grey");
+      }
     }
 
     function removeCircleOnly() {
@@ -710,12 +825,16 @@
         resizeMarker.setMap(null);
         resizeMarker = null;
       }
+
+      updateRemoveCircleButton();
     }
 
     function removeCircle() {
+      if (!circle) return;
+
       removeCircleOnly();
-      updateRadiusLabel(savedCircleRadius);
-      document.getElementById("radiusSlider").value = savedCircleRadius;
+      updateRadiusLabel(savedCircleRadiusFeet);
+      document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
       updateStatus("Circle removed. Double-click the map to place a new one.");
     }
 
@@ -723,16 +842,28 @@
       document.getElementById("status").textContent = message;
     }
 
+    function updateProgress(percent) {
+      const outer = document.getElementById("progressOuter");
+      const inner = document.getElementById("progressInner");
+
+      outer.style.display = "block";
+      inner.style.width = percent + "%";
+      inner.textContent = percent + "%";
+
+      if (percent >= 100) {
+        setTimeout(function() {
+          outer.style.display = "none";
+          inner.style.width = "0%";
+          inner.textContent = "0%";
+        }, 1200);
+      }
+    }
+
     function getDensitySettings() {
       const density = document.getElementById("densitySelect").value;
 
-      if (density === "fast") {
-        return { gridStepMultiplier: 0.9, searchRadiusMultiplier: 0.9 };
-      }
-
-      if (density === "deep") {
-        return { gridStepMultiplier: 0.45, searchRadiusMultiplier: 0.7 };
-      }
+      if (density === "fast") return { gridStepMultiplier: 0.9, searchRadiusMultiplier: 0.9 };
+      if (density === "deep") return { gridStepMultiplier: 0.45, searchRadiusMultiplier: 0.7 };
 
       return { gridStepMultiplier: 0.65, searchRadiusMultiplier: 0.8 };
     }
@@ -804,18 +935,23 @@
       clearResults();
 
       const scannedCenter = circle.getCenter();
-      const radius = circle.getRadius();
-      const searchPoints = generateSearchPoints(scannedCenter, radius);
+      const radiusMeters = circle.getRadius();
+      const searchPoints = generateSearchPoints(scannedCenter, radiusMeters);
 
-      updateStatus(`Scanning ${searchPoints.length} points...`);
+      updateProgress(0);
+      updateStatus(`Scanning 0% - 0 of ${searchPoints.length} points...`);
 
       for (let i = 0; i < searchPoints.length; i++) {
-        updateStatus(`Scanning point ${i + 1} of ${searchPoints.length}...`);
+        const percent = Math.round(((i + 1) / searchPoints.length) * 100);
+        updateStatus(`Scanning ${percent}% - point ${i + 1} of ${searchPoints.length}...`);
+        updateProgress(percent);
+
         await nearbySearch(searchPoints[i].location, searchPoints[i].radius);
         await wait(350);
       }
 
       updateStatus(`Finished. Found ${allBusinesses.length} unique businesses.`);
+      updateProgress(100);
       document.getElementById("clearResultsButton").style.display = allBusinesses.length > 0 ? "block" : "none";
       renderResults();
     }
@@ -904,25 +1040,17 @@
 
     function getLatestReviewInfo(reviews) {
       if (!reviews || reviews.length === 0) {
-        return {
-          dateText: "No review date provided",
-          timestamp: 0
-        };
+        return { dateText: "No review date provided", timestamp: 0 };
       }
 
       let newestTime = 0;
 
       for (const review of reviews) {
-        if (review.time && review.time > newestTime) {
-          newestTime = review.time;
-        }
+        if (review.time && review.time > newestTime) newestTime = review.time;
       }
 
       if (!newestTime) {
-        return {
-          dateText: "No review date provided",
-          timestamp: 0
-        };
+        return { dateText: "No review date provided", timestamp: 0 };
       }
 
       return {
@@ -960,14 +1088,8 @@
         if (sortValue === "rating-asc") return Number(a.rating || 0) - Number(b.rating || 0);
         if (sortValue === "review-desc") return Number(b.latestReviewTimestamp || 0) - Number(a.latestReviewTimestamp || 0);
         if (sortValue === "review-asc") return Number(a.latestReviewTimestamp || 0) - Number(b.latestReviewTimestamp || 0);
-
-        if (sortValue === "has-website") {
-          return Number(Boolean(b.website)) - Number(Boolean(a.website));
-        }
-
-        if (sortValue === "no-website") {
-          return Number(!b.website) - Number(!a.website);
-        }
+        if (sortValue === "has-website") return Number(Boolean(b.website)) - Number(Boolean(a.website));
+        if (sortValue === "no-website") return Number(!b.website) - Number(!a.website);
 
         return 0;
       });
@@ -1081,9 +1203,7 @@
 
       const card = document.getElementById(`business-card-${business.placeId}`);
 
-      if (!card) {
-        return;
-      }
+      if (!card) return;
 
       card.scrollIntoView({
         behavior: "smooth",
