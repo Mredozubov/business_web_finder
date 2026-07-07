@@ -43,26 +43,45 @@
       z-index: 10;
     }
 
-    #panel.closed { transform: translateX(100%); }
+    #panel.closed {
+      transform: translateX(100%);
+    }
 
-    #panelToggle {
+    .floating-button {
       position: fixed;
-      top: 16px;
-      right: 390px;
       z-index: 11;
       width: auto;
       min-width: 78px;
       padding: 12px 14px;
-      border-radius: 10px 0 0 10px;
       background: #111827;
       color: white;
       border: 2px solid white;
       box-shadow: 0 3px 10px rgba(0,0,0,0.35);
       font-size: 15px;
       font-weight: bold;
+      cursor: pointer;
     }
 
-    #panel.closed + #panelToggle { right: 0; }
+    #panelToggle {
+      top: 16px;
+      right: 390px;
+      border-radius: 10px 0 0 10px;
+    }
+
+    #slideToggle {
+      top: 66px;
+      right: 390px;
+      border-radius: 10px 0 0 10px;
+      background: #374151;
+    }
+
+    #panel.closed + #panelToggle {
+      right: 0;
+    }
+
+    #panel.closed ~ #slideToggle {
+      right: 0;
+    }
 
     h2 { margin-top: 0; }
 
@@ -78,6 +97,10 @@
       margin-top: 6px;
     }
 
+    input[type="range"] {
+      padding: 0;
+    }
+
     button {
       width: 100%;
       padding: 11px;
@@ -90,9 +113,12 @@
       border-radius: 7px;
     }
 
-    button:hover { background: #1d4ed8; }
+    button:hover { opacity: 0.92; }
+
     button.secondary { background: #4b5563; }
     button.danger { background: #dc2626; }
+    button.green { background: #16a34a; }
+    button.settings { background: #7c3aed; }
 
     #status {
       margin-top: 12px;
@@ -100,6 +126,23 @@
       background: #f1f5f9;
       border-radius: 6px;
       font-size: 14px;
+    }
+
+    #searchSettings {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #dbeafe;
+    }
+
+    #searchSettings.open {
+      display: block;
+    }
+
+    #clearResultsButton {
+      display: none;
     }
 
     .business-card {
@@ -131,6 +174,36 @@
 
     a { word-break: break-word; }
 
+    .resize-handle {
+      width: 28px;
+      height: 28px;
+      background: white;
+      border: 3px solid #2563eb;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      position: relative;
+    }
+
+    .resize-handle::before,
+    .resize-handle::after {
+      content: "";
+      position: absolute;
+      background: #2563eb;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .resize-handle::before {
+      width: 14px;
+      height: 3px;
+    }
+
+    .resize-handle::after {
+      width: 3px;
+      height: 14px;
+    }
+
     @media (max-width: 700px) {
       #panel {
         top: auto;
@@ -155,8 +228,20 @@
         border-radius: 10px 10px 0 0;
       }
 
+      #slideToggle {
+        top: auto;
+        bottom: calc(58vh + 52px);
+        right: 12px;
+        border-radius: 10px 10px 0 0;
+      }
+
       #panel.closed + #panelToggle {
         bottom: 54px;
+        right: 12px;
+      }
+
+      #panel.closed ~ #slideToggle {
+        bottom: 106px;
         right: 12px;
       }
     }
@@ -170,49 +255,57 @@
     <div id="panel">
       <h2>Business Area Scanner</h2>
 
+      <button class="settings" onclick="toggleSearchSettings()">Search Settings</button>
+
+      <div id="searchSettings">
+        <label>Search by Business Name</label>
+        <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
+
+        <label>Search by Address</label>
+        <input id="addressSearch" placeholder="Example: Brooklyn" oninput="renderResults()" />
+
+        <label>Scan Density</label>
+        <select id="densitySelect">
+          <option value="fast">Fast / wider scan</option>
+          <option value="normal" selected>Normal</option>
+          <option value="deep">Deep / slower scan</option>
+        </select>
+
+        <label>Sort Results</label>
+        <select id="sortSelect" onchange="renderResults()">
+          <option value="name-asc">Name A-Z</option>
+          <option value="name-desc">Name Z-A</option>
+          <option value="address-asc">Address A-Z</option>
+          <option value="address-desc">Address Z-A</option>
+          <option value="rating-desc">Rating High-Low</option>
+          <option value="rating-asc">Rating Low-High</option>
+          <option value="review-desc">Last Review Newest-Oldest</option>
+          <option value="review-asc">Last Review Oldest-Newest</option>
+        </select>
+
+        <button onclick="exportCSV()" class="green">Export CSV</button>
+      </div>
+
       <p>
-        Double-click the map to place the scan circle. Drag the outside circle handle to resize it.
+        Double-click the map to place the scan circle. Drag the outside resize handle or use the slider below.
       </p>
 
       <label>Circle Radius: <span id="radiusLabel">Not placed</span></label>
-
-      <label>Search by Business Name</label>
-      <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
-
-      <label>Search by Address</label>
-      <input id="addressSearch" placeholder="Example: Brooklyn" oninput="renderResults()" />
-
-      <label>Scan Density</label>
-      <select id="densitySelect">
-        <option value="fast">Fast / wider scan</option>
-        <option value="normal" selected>Normal</option>
-        <option value="deep">Deep / slower scan</option>
-      </select>
-
-      <label>Sort Results</label>
-      <select id="sortSelect" onchange="renderResults()">
-        <option value="name-asc">Name A-Z</option>
-        <option value="name-desc">Name Z-A</option>
-        <option value="address-asc">Address A-Z</option>
-        <option value="address-desc">Address Z-A</option>
-        <option value="rating-desc">Rating High-Low</option>
-        <option value="rating-asc">Rating Low-High</option>
-        <option value="review-desc">Last Review Newest-Oldest</option>
-        <option value="review-asc">Last Review Oldest-Newest</option>
-      </select>
+      <input id="radiusSlider" type="range" min="50" max="3000" step="50" value="500" />
 
       <button onclick="scanCircle()">Scan Circle</button>
-      <button onclick="exportCSV()" class="secondary">Export CSV</button>
-      <button onclick="clearResults()" class="danger">Clear Results</button>
       <button onclick="removeCircle()" class="danger">Remove Circle</button>
 
       <div id="status">Double-click the map to place your scan circle.</div>
+
+      <button id="clearResultsButton" onclick="clearResults()" class="danger">Clear Results</button>
 
       <h3>Results: <span id="resultCount">0</span></h3>
       <div id="results"></div>
     </div>
 
-    <button id="panelToggle" onclick="togglePanel()">Hide</button>
+    <button id="panelToggle" class="floating-button" onclick="togglePanel()">Hide</button>
+    <button id="slideToggle" class="floating-button" onclick="togglePanel()">Slide</button>
   </div>
 
   <script>
@@ -246,17 +339,37 @@
         placeCircle(event.latLng);
       });
 
+      document.getElementById("radiusSlider").addEventListener("input", function() {
+        if (!circle) {
+          alert("Double-click the map to place a circle first.");
+          this.value = DEFAULT_RADIUS;
+          return;
+        }
+
+        const newRadius = Number(this.value);
+        circle.setRadius(newRadius);
+        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+        updateRadiusLabel(newRadius);
+      });
+
       updateStatus("Ready. Double-click the map to place your scan circle.");
     }
 
-    function placeCircle(center) {
-      if (circle) {
-        circle.setMap(null);
-      }
+    function togglePanel() {
+      const panel = document.getElementById("panel");
+      const hideButton = document.getElementById("panelToggle");
 
-      if (resizeMarker) {
-        resizeMarker.setMap(null);
-      }
+      panel.classList.toggle("closed");
+      hideButton.textContent = panel.classList.contains("closed") ? "Show" : "Hide";
+    }
+
+    function toggleSearchSettings() {
+      document.getElementById("searchSettings").classList.toggle("open");
+    }
+
+    function placeCircle(center) {
+      if (circle) circle.setMap(null);
+      if (resizeMarker) resizeMarker.setMap(null);
 
       circle = new google.maps.Circle({
         map: map,
@@ -276,7 +389,12 @@
         map: map,
         position: getResizeMarkerPosition(center, DEFAULT_RADIUS),
         draggable: true,
-        title: "Drag to resize scan circle"
+        title: "Drag to resize scan circle",
+        icon: {
+          url: makeResizeHandleIcon(),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        }
       });
 
       resizeMarker.addListener("drag", function(event) {
@@ -288,16 +406,30 @@
         );
 
         circle.setRadius(newRadius);
+        document.getElementById("radiusSlider").value = Math.min(Math.round(newRadius), 3000);
         updateRadiusLabel(newRadius);
       });
 
-      resizeMarker.addListener("dragend", function(event) {
+      resizeMarker.addListener("dragend", function() {
         const newRadius = circle.getRadius();
         resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
       });
 
+      document.getElementById("radiusSlider").value = DEFAULT_RADIUS;
       updateRadiusLabel(DEFAULT_RADIUS);
-      updateStatus("Circle placed. Drag the outside marker to resize it.");
+      updateStatus("Circle placed. Drag the expand handle or use the radius slider.");
+    }
+
+    function makeResizeHandleIcon() {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="13" fill="white" stroke="#2563eb" stroke-width="4"/>
+          <path d="M10 16H22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+          <path d="M16 10V22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      `;
+
+      return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
     }
 
     function getResizeMarkerPosition(center, radiusMeters) {
@@ -327,15 +459,8 @@
       }
 
       document.getElementById("radiusLabel").textContent = "Not placed";
+      document.getElementById("radiusSlider").value = DEFAULT_RADIUS;
       updateStatus("Circle removed. Double-click the map to place a new one.");
-    }
-
-    function togglePanel() {
-      const panel = document.getElementById("panel");
-      const button = document.getElementById("panelToggle");
-
-      panel.classList.toggle("closed");
-      button.textContent = panel.classList.contains("closed") ? "Show" : "Hide";
     }
 
     function updateStatus(message) {
@@ -435,6 +560,7 @@
       }
 
       updateStatus(`Finished. Found ${allBusinesses.length} unique businesses.`);
+      document.getElementById("clearResultsButton").style.display = allBusinesses.length > 0 ? "block" : "none";
       renderResults();
     }
 
@@ -449,17 +575,13 @@
         placesService.nearbySearch(request, async function(results, status, pagination) {
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
             for (const place of results) {
-              if (!place.place_id || seenPlaceIds.has(place.place_id)) {
-                continue;
-              }
+              if (!place.place_id || seenPlaceIds.has(place.place_id)) continue;
 
               seenPlaceIds.add(place.place_id);
 
               const details = await getPlaceDetails(place.place_id);
 
-              if (details) {
-                allBusinesses.push(details);
-              }
+              if (details) allBusinesses.push(details);
 
               await wait(120);
             }
@@ -649,9 +771,7 @@
       business.marker.setAnimation(google.maps.Animation.BOUNCE);
 
       setTimeout(function() {
-        if (business.marker) {
-          business.marker.setAnimation(null);
-        }
+        if (business.marker) business.marker.setAnimation(null);
       }, 700);
 
       showInfoWindow(business, business.marker);
@@ -750,6 +870,7 @@
 
       document.getElementById("results").innerHTML = "";
       document.getElementById("resultCount").textContent = "0";
+      document.getElementById("clearResultsButton").style.display = "none";
       updateStatus("Results cleared.");
     }
 
