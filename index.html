@@ -53,12 +53,12 @@
       border-left: 1px solid #ddd;
       box-shadow: -2px 0 12px rgba(0,0,0,0.2);
       transform: translateX(0);
-      transition: transform 0.25s ease;
+      transition: transform 0.2s ease;
       z-index: 10;
     }
 
     #panel.closed {
-      transform: translateX(100%);
+      transform: translateX(calc(100% - 0px));
     }
 
     .floating-button {
@@ -90,14 +90,6 @@
       border-radius: 10px 0 0 10px;
       background: #374151;
       cursor: ew-resize;
-    }
-
-    #panel.closed + #panelToggle {
-      right: 0;
-    }
-
-    #panel.closed ~ #slideToggle {
-      right: 0;
     }
 
     h2 { margin-top: 0; }
@@ -158,6 +150,31 @@
       display: block;
     }
 
+    #businessTypeBox {
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .type-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 14px;
+      font-weight: normal;
+      margin-top: 0;
+    }
+
+    .type-option input {
+      width: auto;
+      margin: 0;
+    }
+
     #clearResultsButton {
       display: none;
     }
@@ -205,7 +222,7 @@
       }
 
       #panel.closed {
-        transform: translateY(calc(100% - 54px));
+        transform: translateY(100%);
       }
 
       #panelToggle {
@@ -221,16 +238,6 @@
         right: 12px;
         border-radius: 10px 10px 0 0;
         cursor: ns-resize;
-      }
-
-      #panel.closed + #panelToggle {
-        bottom: 54px;
-        right: 12px;
-      }
-
-      #panel.closed ~ #slideToggle {
-        bottom: 106px;
-        right: 12px;
       }
 
       #mapHint {
@@ -255,6 +262,112 @@
       <button id="settingsButton" class="settings" onclick="toggleSearchSettings()">Search Settings ↓</button>
 
       <div id="searchSettings">
+        <label>Filter Business Type</label>
+        <div id="businessTypeBox">
+          <label class="type-option">
+            <input type="checkbox" value="bakery" checked onchange="renderResults()">
+            Bakery
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="bank" checked onchange="renderResults()">
+            Bank
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="bar" checked onchange="renderResults()">
+            Bar
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="beauty_salon" checked onchange="renderResults()">
+            Beauty Salon
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="cafe" checked onchange="renderResults()">
+            Cafe
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="car_repair" checked onchange="renderResults()">
+            Car Repair
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="clothing_store" checked onchange="renderResults()">
+            Clothing
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="dentist" checked onchange="renderResults()">
+            Dentist
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="doctor" checked onchange="renderResults()">
+            Doctor / Medical
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="electronics_store" checked onchange="renderResults()">
+            Electronics
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="food" checked onchange="renderResults()">
+            Food
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="gym" checked onchange="renderResults()">
+            Gym
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="hair_care" checked onchange="renderResults()">
+            Hair Care
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="home_goods_store" checked onchange="renderResults()">
+            Home Goods
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="liquor_store" checked onchange="renderResults()">
+            Liquor
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="meal_takeaway" checked onchange="renderResults()">
+            Meal Takeaway
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="pharmacy" checked onchange="renderResults()">
+            Pharmacy
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="restaurant" checked onchange="renderResults()">
+            Restaurant
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="store" checked onchange="renderResults()">
+            Store
+          </label>
+
+          <label class="type-option">
+            <input type="checkbox" value="supermarket" checked onchange="renderResults()">
+            Supermarket
+          </label>
+        </div>
+
+        <button onclick="selectAllBusinessTypes()" class="secondary">Select All Types</button>
+        <button onclick="unselectAllBusinessTypes()" class="secondary">Unselect All Types</button>
+
         <label>Search by Business Name</label>
         <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
 
@@ -323,9 +436,9 @@
     let savedCircleRadius = 500;
 
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
-    const DEFAULT_RADIUS = 500;
-    const MIN_PANEL_WIDTH = 300;
+    const MIN_PANEL_WIDTH = 0;
     const MAX_PANEL_WIDTH = 760;
+    const MIN_PANEL_HEIGHT = 0;
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
@@ -367,6 +480,7 @@
       slideButton.addEventListener("pointerdown", function(event) {
         event.preventDefault();
         isSlidingPanel = true;
+        document.getElementById("panel").style.transition = "none";
         slideButton.setPointerCapture(event.pointerId);
       });
 
@@ -377,26 +491,46 @@
 
         if (window.innerWidth <= 700) {
           const newHeight = window.innerHeight - event.clientY;
-          const clampedHeight = Math.max(240, Math.min(window.innerHeight * 0.9, newHeight));
+          const clampedHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(window.innerHeight * 0.9, newHeight));
+
+          panel.classList.remove("closed");
           panel.style.height = clampedHeight + "px";
+
+          if (clampedHeight <= 10) {
+            panel.classList.add("closed");
+            document.getElementById("panelToggle").textContent = "Show";
+          } else {
+            document.getElementById("panelToggle").textContent = "Hide";
+          }
         } else {
           const newWidth = window.innerWidth - event.clientX;
           const clampedWidth = Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, newWidth));
+
+          panel.classList.remove("closed");
           panel.style.width = clampedWidth + "px";
+
+          if (clampedWidth <= 10) {
+            panel.classList.add("closed");
+            document.getElementById("panelToggle").textContent = "Show";
+          } else {
+            document.getElementById("panelToggle").textContent = "Hide";
+          }
         }
 
-        panel.classList.remove("closed");
-        document.getElementById("panelToggle").textContent = "Hide";
         updateFloatingButtons();
       });
 
       slideButton.addEventListener("pointerup", function(event) {
         isSlidingPanel = false;
+        document.getElementById("panel").style.transition = "transform 0.2s ease";
         slideButton.releasePointerCapture(event.pointerId);
+        updateFloatingButtons();
       });
 
       slideButton.addEventListener("pointercancel", function() {
         isSlidingPanel = false;
+        document.getElementById("panel").style.transition = "transform 0.2s ease";
+        updateFloatingButtons();
       });
     }
 
@@ -406,15 +540,18 @@
       const slideToggle = document.getElementById("slideToggle");
 
       if (window.innerWidth <= 700) {
-        const panelHeight = panel.offsetHeight;
-        panelToggle.style.bottom = panel.classList.contains("closed") ? "54px" : panelHeight + "px";
-        slideToggle.style.bottom = panel.classList.contains("closed") ? "106px" : (panelHeight + 52) + "px";
+        const panelHeight = panel.classList.contains("closed") ? 0 : panel.offsetHeight;
+
+        panelToggle.style.bottom = panelHeight + "px";
+        slideToggle.style.bottom = (panelHeight + 52) + "px";
+
         panelToggle.style.right = "12px";
         slideToggle.style.right = "12px";
       } else {
-        const panelWidth = panel.offsetWidth;
-        panelToggle.style.right = panel.classList.contains("closed") ? "0px" : panelWidth + "px";
-        slideToggle.style.right = panel.classList.contains("closed") ? "0px" : panelWidth + "px";
+        const panelWidth = panel.classList.contains("closed") ? 0 : panel.offsetWidth;
+
+        panelToggle.style.right = panelWidth + "px";
+        slideToggle.style.right = panelWidth + "px";
       }
     }
 
@@ -435,6 +572,43 @@
 
       settings.classList.toggle("open");
       button.textContent = settings.classList.contains("open") ? "Search Settings ↑" : "Search Settings ↓";
+    }
+
+    function selectAllBusinessTypes() {
+      const checkboxes = document.querySelectorAll("#businessTypeBox input[type='checkbox']");
+      checkboxes.forEach(function(checkbox) {
+        checkbox.checked = true;
+      });
+      renderResults();
+    }
+
+    function unselectAllBusinessTypes() {
+      const checkboxes = document.querySelectorAll("#businessTypeBox input[type='checkbox']");
+      checkboxes.forEach(function(checkbox) {
+        checkbox.checked = false;
+      });
+      renderResults();
+    }
+
+    function getSelectedBusinessTypes() {
+      const checkboxes = document.querySelectorAll("#businessTypeBox input[type='checkbox']:checked");
+      return Array.from(checkboxes).map(function(checkbox) {
+        return checkbox.value;
+      });
+    }
+
+    function businessMatchesSelectedType(business, selectedTypes) {
+      if (selectedTypes.length === 0) {
+        return false;
+      }
+
+      if (!business.typesRaw || business.typesRaw.length === 0) {
+        return false;
+      }
+
+      return business.typesRaw.some(function(type) {
+        return selectedTypes.includes(type);
+      });
     }
 
     function placeCircle(center) {
@@ -751,6 +925,7 @@
               reviewCount: place.user_ratings_total || "",
               businessStatus: place.business_status || "",
               types: place.types ? place.types.join(", ") : "",
+              typesRaw: place.types || [],
               latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
               longitude: place.geometry && place.geometry.location ? place.geometry.location.lng() : "",
               latestReviewDate: reviewInfo.dateText,
@@ -792,13 +967,13 @@
       };
     }
 
-    
     function renderResults() {
       const resultsDiv = document.getElementById("results");
       const countSpan = document.getElementById("resultCount");
       const sortValue = document.getElementById("sortSelect").value;
       const nameSearch = document.getElementById("nameSearch").value.toLowerCase().trim();
       const addressSearch = document.getElementById("addressSearch").value.toLowerCase().trim();
+      const selectedBusinessTypes = getSelectedBusinessTypes();
 
       clearMarkers();
 
@@ -807,7 +982,9 @@
       businesses = businesses.filter(function(business) {
         const nameMatch = business.name.toLowerCase().includes(nameSearch);
         const addressMatch = business.address.toLowerCase().includes(addressSearch);
-        return nameMatch && addressMatch;
+        const typeMatch = businessMatchesSelectedType(business, selectedBusinessTypes);
+
+        return nameMatch && addressMatch && typeMatch;
       });
 
       businesses.sort(function(a, b) {
@@ -823,7 +1000,7 @@
         if (sortValue === "has-website") {
           return Number(Boolean(b.website)) - Number(Boolean(a.website));
         }
-        
+
         if (sortValue === "no-website") {
           return Number(!b.website) - Number(!a.website);
         }
