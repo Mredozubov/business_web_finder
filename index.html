@@ -55,10 +55,11 @@
       transform: translateX(0);
       transition: transform 0.2s ease;
       z-index: 10;
+      scroll-behavior: smooth;
     }
 
     #panel.closed {
-      transform: translateX(calc(100% - 0px));
+      transform: translateX(100%);
     }
 
     .floating-button {
@@ -179,6 +180,15 @@
       display: none;
     }
 
+    #backToTopButton {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #111827;
+      margin-bottom: 10px;
+    }
+
     .business-card {
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -281,105 +291,26 @@
       <div id="searchSettings">
         <label>Filter Business Type</label>
         <div id="businessTypeBox">
-          <label class="type-option">
-            <input type="checkbox" value="bakery" checked onchange="renderResults()">
-            Bakery
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="bank" checked onchange="renderResults()">
-            Bank
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="bar" checked onchange="renderResults()">
-            Bar
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="beauty_salon" checked onchange="renderResults()">
-            Beauty Salon
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="cafe" checked onchange="renderResults()">
-            Cafe
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="car_repair" checked onchange="renderResults()">
-            Car Repair
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="clothing_store" checked onchange="renderResults()">
-            Clothing
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="dentist" checked onchange="renderResults()">
-            Dentist
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="doctor" checked onchange="renderResults()">
-            Doctor / Medical
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="electronics_store" checked onchange="renderResults()">
-            Electronics
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="food" checked onchange="renderResults()">
-            Food
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="gym" checked onchange="renderResults()">
-            Gym
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="hair_care" checked onchange="renderResults()">
-            Hair Care
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="home_goods_store" checked onchange="renderResults()">
-            Home Goods
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="liquor_store" checked onchange="renderResults()">
-            Liquor
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="meal_takeaway" checked onchange="renderResults()">
-            Meal Takeaway
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="pharmacy" checked onchange="renderResults()">
-            Pharmacy
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="restaurant" checked onchange="renderResults()">
-            Restaurant
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="store" checked onchange="renderResults()">
-            Store
-          </label>
-
-          <label class="type-option">
-            <input type="checkbox" value="supermarket" checked onchange="renderResults()">
-            Supermarket
-          </label>
+          <label class="type-option"><input type="checkbox" value="bakery" checked onchange="renderResults()">Bakery</label>
+          <label class="type-option"><input type="checkbox" value="bank" checked onchange="renderResults()">Bank</label>
+          <label class="type-option"><input type="checkbox" value="bar" checked onchange="renderResults()">Bar</label>
+          <label class="type-option"><input type="checkbox" value="beauty_salon" checked onchange="renderResults()">Beauty Salon</label>
+          <label class="type-option"><input type="checkbox" value="cafe" checked onchange="renderResults()">Cafe</label>
+          <label class="type-option"><input type="checkbox" value="car_repair" checked onchange="renderResults()">Car Repair</label>
+          <label class="type-option"><input type="checkbox" value="clothing_store" checked onchange="renderResults()">Clothing</label>
+          <label class="type-option"><input type="checkbox" value="dentist" checked onchange="renderResults()">Dentist</label>
+          <label class="type-option"><input type="checkbox" value="doctor" checked onchange="renderResults()">Doctor / Medical</label>
+          <label class="type-option"><input type="checkbox" value="electronics_store" checked onchange="renderResults()">Electronics</label>
+          <label class="type-option"><input type="checkbox" value="food" checked onchange="renderResults()">Food</label>
+          <label class="type-option"><input type="checkbox" value="gym" checked onchange="renderResults()">Gym</label>
+          <label class="type-option"><input type="checkbox" value="hair_care" checked onchange="renderResults()">Hair Care</label>
+          <label class="type-option"><input type="checkbox" value="home_goods_store" checked onchange="renderResults()">Home Goods</label>
+          <label class="type-option"><input type="checkbox" value="liquor_store" checked onchange="renderResults()">Liquor</label>
+          <label class="type-option"><input type="checkbox" value="meal_takeaway" checked onchange="renderResults()">Meal Takeaway</label>
+          <label class="type-option"><input type="checkbox" value="pharmacy" checked onchange="renderResults()">Pharmacy</label>
+          <label class="type-option"><input type="checkbox" value="restaurant" checked onchange="renderResults()">Restaurant</label>
+          <label class="type-option"><input type="checkbox" value="store" checked onchange="renderResults()">Store</label>
+          <label class="type-option"><input type="checkbox" value="supermarket" checked onchange="renderResults()">Supermarket</label>
         </div>
 
         <button onclick="selectAllBusinessTypes()" class="secondary">Select All Types</button>
@@ -430,6 +361,7 @@
       <button id="clearResultsButton" onclick="clearResults()" class="danger">Clear Results</button>
 
       <h3>Results: <span id="resultCount">0</span></h3>
+      <button id="backToTopButton" onclick="scrollPanelToTop()">Back To Top</button>
       <div id="results"></div>
     </div>
 
@@ -448,6 +380,9 @@
     let seenPlaceIds = new Set();
     let markers = [];
     let activeInfoWindow = null;
+    let hoverInfoWindow = null;
+    let currentHoverMarker = null;
+    let hoverCloseTimer = null;
 
     let isSlidingPanel = false;
     let savedCircleRadius = 500;
@@ -494,6 +429,8 @@
           resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
         }
       });
+
+      document.getElementById("panel").addEventListener("scroll", updateBackToTopButton);
 
       updateRadiusLabel(savedCircleRadius);
       setupPanelSlider();
@@ -1070,12 +1007,12 @@
 
         card.addEventListener("click", function() {
           highlightBusiness(business);
-          map.panTo({ lat: Number(business.latitude), lng: Number(business.longitude) });
-          map.setZoom(Math.max(map.getZoom(), 17));
         });
 
         resultsDiv.appendChild(card);
       }
+
+      updateBackToTopButton();
     }
 
     function createMarker(business) {
@@ -1091,18 +1028,28 @@
       });
 
       marker.addListener("mouseover", function() {
-        showInfoWindow(business, marker);
+        currentHoverMarker = marker;
+
+        if (hoverCloseTimer) {
+          clearTimeout(hoverCloseTimer);
+          hoverCloseTimer = null;
+        }
+
+        showHoverInfoWindow(business, marker);
       });
 
       marker.addListener("mouseout", function() {
-        if (activeInfoWindow) {
-          activeInfoWindow.close();
-          activeInfoWindow = null;
-        }
+        hoverCloseTimer = setTimeout(function() {
+          if (currentHoverMarker === marker && hoverInfoWindow) {
+            hoverInfoWindow.close();
+            hoverInfoWindow = null;
+            currentHoverMarker = null;
+          }
+        }, 120);
       });
 
       marker.addListener("click", function() {
-        showInfoWindow(business, marker);
+        showClickInfoWindow(business, marker);
         scrollToBusinessListing(business);
       });
 
@@ -1119,7 +1066,7 @@
         if (business.marker) business.marker.setAnimation(null);
       }, 700);
 
-      showInfoWindow(business, business.marker);
+      showClickInfoWindow(business, business.marker);
     }
 
     function scrollToBusinessListing(business) {
@@ -1143,11 +1090,13 @@
         block: "center"
       });
 
-      card.classList.add("highlighted");
-
       setTimeout(function() {
-        card.classList.remove("highlighted");
-      }, 1000);
+        card.classList.add("highlighted");
+
+        setTimeout(function() {
+          card.classList.remove("highlighted");
+        }, 1000);
+      }, 700);
     }
 
     function buildInfoWindowContent(business) {
@@ -1173,13 +1122,38 @@
       `;
     }
 
-    function showInfoWindow(business, marker) {
+    function showHoverInfoWindow(business, marker) {
+      if (activeInfoWindow) {
+        activeInfoWindow.close();
+        activeInfoWindow = null;
+      }
+
+      if (hoverInfoWindow) {
+        hoverInfoWindow.close();
+      }
+
+      hoverInfoWindow = new google.maps.InfoWindow({
+        content: buildInfoWindowContent(business),
+        disableAutoPan: true
+      });
+
+      hoverInfoWindow.open(map, marker);
+    }
+
+    function showClickInfoWindow(business, marker) {
+      if (hoverInfoWindow) {
+        hoverInfoWindow.close();
+        hoverInfoWindow = null;
+        currentHoverMarker = null;
+      }
+
       if (activeInfoWindow) {
         activeInfoWindow.close();
       }
 
       activeInfoWindow = new google.maps.InfoWindow({
-        content: buildInfoWindowContent(business)
+        content: buildInfoWindowContent(business),
+        disableAutoPan: true
       });
 
       activeInfoWindow.open(map, marker);
@@ -1196,6 +1170,36 @@
         activeInfoWindow.close();
         activeInfoWindow = null;
       }
+
+      if (hoverInfoWindow) {
+        hoverInfoWindow.close();
+        hoverInfoWindow = null;
+      }
+
+      currentHoverMarker = null;
+
+      if (hoverCloseTimer) {
+        clearTimeout(hoverCloseTimer);
+        hoverCloseTimer = null;
+      }
+    }
+
+    function updateBackToTopButton() {
+      const panel = document.getElementById("panel");
+      const button = document.getElementById("backToTopButton");
+
+      if (panel.scrollTop > 350 && allBusinesses.length > 0) {
+        button.style.display = "block";
+      } else {
+        button.style.display = "none";
+      }
+    }
+
+    function scrollPanelToTop() {
+      document.getElementById("panel").scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
     }
 
     function exportCSV() {
@@ -1262,6 +1266,7 @@
       document.getElementById("results").innerHTML = "";
       document.getElementById("resultCount").textContent = "0";
       document.getElementById("clearResultsButton").style.display = "none";
+      document.getElementById("backToTopButton").style.display = "none";
       updateStatus("Results cleared.");
     }
 
