@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Business Area Scanner</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     * {
@@ -15,71 +14,56 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f4f4f4;
-      color: #222;
     }
 
-    header {
-      background: #111827;
-      color: white;
-      padding: 16px 20px;
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    header p {
-      margin: 6px 0 0;
-      font-size: 14px;
-      color: #d1d5db;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 1fr 430px;
-      height: calc(100vh - 76px);
+    #app {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
     }
 
     #map {
-      width: 100%;
+      flex: 2;
       height: 100%;
     }
 
-    .panel {
+    #panel {
+      flex: 1;
+      min-width: 360px;
+      max-width: 480px;
       background: white;
-      border-left: 1px solid #ddd;
-      overflow-y: auto;
       padding: 16px;
+      overflow-y: auto;
+      border-left: 1px solid #ddd;
     }
 
-    .controls {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 16px;
+    h2 {
+      margin-top: 0;
     }
 
     label {
-      font-size: 13px;
+      display: block;
+      margin-top: 14px;
       font-weight: bold;
     }
 
-    input,
-    select,
+    input[type="range"],
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+    }
+
     button {
       width: 100%;
       padding: 10px;
-      font-size: 14px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-
-    button {
+      margin-top: 10px;
+      border: none;
       background: #2563eb;
       color: white;
-      border: none;
-      cursor: pointer;
       font-weight: bold;
+      cursor: pointer;
+      border-radius: 6px;
     }
 
     button:hover {
@@ -87,607 +71,447 @@
     }
 
     button.secondary {
-      background: #374151;
-    }
-
-    button.secondary:hover {
-      background: #1f2937;
+      background: #555;
     }
 
     button.danger {
       background: #dc2626;
     }
 
-    button.danger:hover {
-      background: #b91c1c;
+    .row {
+      display: flex;
+      gap: 8px;
     }
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .row button {
+      flex: 1;
     }
 
-    .status {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
+    #status {
+      margin-top: 12px;
       padding: 10px;
+      background: #f1f5f9;
+      border-radius: 6px;
       font-size: 14px;
-      margin-bottom: 12px;
-      white-space: pre-line;
     }
 
-    .result-count {
-      font-weight: bold;
-      margin-bottom: 10px;
+    #results {
+      margin-top: 16px;
     }
 
     .business-card {
       border: 1px solid #ddd;
       border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: #fff;
-    }
-
-    .business-card h3 {
-      margin: 0 0 6px;
-      font-size: 16px;
-    }
-
-    .business-card p {
-      margin: 4px 0;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .business-card a {
-      color: #2563eb;
-      word-break: break-word;
-    }
-
-    .small {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .warning {
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      color: #9a3412;
       padding: 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+      font-size: 14px;
     }
 
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: 55vh auto;
-        height: auto;
-      }
+    .business-card strong {
+      font-size: 15px;
+    }
 
-      .panel {
-        border-left: none;
-        border-top: 1px solid #ddd;
-      }
+    .missing {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    .has-website {
+      color: #16a34a;
+      font-weight: bold;
+    }
+
+    a {
+      word-break: break-word;
     }
   </style>
 </head>
 
 <body>
-  <header>
-    <h1>Business Area Scanner</h1>
-    <p>Click two corners on the map, then scan for businesses inside that area.</p>
-  </header>
-
-  <main class="layout">
+  <div id="app">
     <div id="map"></div>
 
-    <aside class="panel">
-      <div class="warning">
-        Your API key is inside this website code. Make sure the key is restricted to your website domain.
+    <div id="panel">
+      <h2>Business Area Scanner</h2>
+
+      <p>
+        Move the circle on the map, adjust the radius, then scan for businesses inside it.
+      </p>
+
+      <label>Circle Radius: <span id="radiusLabel">500</span> meters</label>
+      <input id="radiusSlider" type="range" min="50" max="3000" step="50" value="500" />
+
+      <label>Scan Density</label>
+      <select id="densitySelect">
+        <option value="fast">Fast / wider scan</option>
+        <option value="normal" selected>Normal</option>
+        <option value="deep">Deep / slower scan</option>
+      </select>
+
+      <div class="row">
+        <button onclick="rotateLeft()">Rotate Left</button>
+        <button onclick="rotateRight()">Rotate Right</button>
       </div>
 
-      <div class="controls">
-        <div>
-          <label for="searchText">Business keyword</label>
-          <input
-            id="searchText"
-            type="text"
-            value="business"
-            placeholder="Example: restaurant, store, dentist, business"
-          />
-        </div>
+      <button onclick="scanCircle()">Scan Circle Area</button>
+      <button onclick="exportCSV()" class="secondary">Export CSV</button>
+      <button onclick="clearResults()" class="danger">Clear Results</button>
 
-        <div>
-          <label for="gridSpacing">Scan density</label>
-          <select id="gridSpacing">
-            <option value="1200">Fast / wider scan</option>
-            <option value="800" selected>Normal</option>
-            <option value="500">Deep / slower scan</option>
-          </select>
-        </div>
+      <div id="status">Drag the circle or click the map to move it.</div>
 
-        <button id="scanBtn" disabled>Scan Selected Area</button>
-        <button id="exportBtn" class="secondary" disabled>Export CSV</button>
-        <button id="clearBtn" class="danger">Clear Area & Results</button>
-      </div>
-
-      <div id="status" class="status">
-        Click the map once for corner 1, then click again for corner 2.
-      </div>
-
-      <div class="result-count" id="resultCount">Results: 0</div>
-
+      <h3>Results: <span id="resultCount">0</span></h3>
       <div id="results"></div>
-    </aside>
-  </main>
+    </div>
+  </div>
 
   <script>
     let map;
+    let circle;
     let placesService;
-    let selectedRectangle = null;
-    let cornerOne = null;
-    let cornerTwo = null;
-    let markers = [];
-    let businesses = [];
-    let isScanning = false;
+    let allBusinesses = [];
+    let seenPlaceIds = new Set();
 
-    const DEFAULT_CENTER = {
-      lat: 40.6782,
-      lng: -73.9442
-    };
-
-    function getStatusBox() {
-      return document.getElementById("status");
-    }
-
-    function getResultsBox() {
-      return document.getElementById("results");
-    }
-
-    function getResultCount() {
-      return document.getElementById("resultCount");
-    }
-
-    function getScanButton() {
-      return document.getElementById("scanBtn");
-    }
-
-    function getExportButton() {
-      return document.getElementById("exportBtn");
-    }
+    const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
         center: DEFAULT_CENTER,
-        zoom: 13,
+        zoom: 15,
+        mapTypeId: "roadmap",
+        tilt: 45,
+        heading: 0,
         mapTypeControl: true,
-        streetViewControl: false,
+        streetViewControl: true,
         fullscreenControl: true
       });
 
       placesService = new google.maps.places.PlacesService(map);
 
-      map.addListener("click", function(event) {
-        handleMapClick(event.latLng);
-      });
-
-      document.getElementById("scanBtn").addEventListener("click", scanSelectedArea);
-      document.getElementById("clearBtn").addEventListener("click", clearAll);
-      document.getElementById("exportBtn").addEventListener("click", exportCSV);
-
-      getStatusBox().textContent =
-        "Click the map once for corner 1, then click again for corner 2.";
-    }
-
-    function handleMapClick(latLng) {
-      if (isScanning) {
-        return;
-      }
-
-      if (!cornerOne) {
-        clearSelectionOnly();
-        cornerOne = latLng;
-        addCornerMarker(latLng, "1");
-        getStatusBox().textContent =
-          "Corner 1 selected. Now click the opposite corner.";
-        return;
-      }
-
-      if (!cornerTwo) {
-        cornerTwo = latLng;
-        addCornerMarker(latLng, "2");
-        drawRectangle();
-        getScanButton().disabled = false;
-        getStatusBox().textContent =
-          "Area selected. Click “Scan Selected Area”.";
-        return;
-      }
-
-      clearAll();
-      cornerOne = latLng;
-      addCornerMarker(latLng, "1");
-      getStatusBox().textContent =
-        "New corner 1 selected. Now click the opposite corner.";
-    }
-
-    function addCornerMarker(latLng, label) {
-      const marker = new google.maps.Marker({
-        position: latLng,
+      circle = new google.maps.Circle({
         map: map,
-        label: label
+        center: DEFAULT_CENTER,
+        radius: 500,
+        draggable: true,
+        editable: true,
+        fillColor: "#2563eb",
+        fillOpacity: 0.18,
+        strokeColor: "#2563eb",
+        strokeOpacity: 0.9,
+        strokeWeight: 2
       });
 
-      markers.push(marker);
-    }
-
-    function drawRectangle() {
-      if (!cornerOne || !cornerTwo) {
-        return;
-      }
-
-      const north = Math.max(cornerOne.lat(), cornerTwo.lat());
-      const south = Math.min(cornerOne.lat(), cornerTwo.lat());
-      const east = Math.max(cornerOne.lng(), cornerTwo.lng());
-      const west = Math.min(cornerOne.lng(), cornerTwo.lng());
-
-      if (selectedRectangle) {
-        selectedRectangle.setMap(null);
-      }
-
-      selectedRectangle = new google.maps.Rectangle({
-        bounds: {
-          north: north,
-          south: south,
-          east: east,
-          west: west
-        },
-        editable: false,
-        draggable: false,
-        map: map
+      map.addListener("click", function(event) {
+        circle.setCenter(event.latLng);
       });
 
-      map.fitBounds(selectedRectangle.getBounds());
+      circle.addListener("radius_changed", function() {
+        const radius = Math.round(circle.getRadius());
+        document.getElementById("radiusSlider").value = Math.min(radius, 3000);
+        document.getElementById("radiusLabel").textContent = radius;
+      });
+
+      circle.addListener("center_changed", function() {
+        updateStatus("Circle moved. Ready to scan.");
+      });
+
+      document.getElementById("radiusSlider").addEventListener("input", function() {
+        const radius = Number(this.value);
+        circle.setRadius(radius);
+        document.getElementById("radiusLabel").textContent = radius;
+      });
+
+      updateStatus("Ready. Drag the circle, resize it, or click the map to move it.");
     }
 
-    async function scanSelectedArea() {
-      if (!selectedRectangle || isScanning) {
-        return;
-      }
-
-      isScanning = true;
-      businesses = [];
-      clearBusinessMarkers();
-      renderResults();
-
-      getScanButton().disabled = true;
-      getExportButton().disabled = true;
-
-      const keyword =
-        document.getElementById("searchText").value.trim() || "business";
-
-      const spacingMeters = Number(
-        document.getElementById("gridSpacing").value
-      );
-
-      const bounds = selectedRectangle.getBounds();
-      const points = createGridPoints(bounds, spacingMeters);
-      const seenPlaceIds = new Set();
-
-      getStatusBox().textContent =
-        "Scanning area...\n" +
-        "Grid points: " + points.length + "\n" +
-        "This may take a little while if the area is large.";
-
-      for (let i = 0; i < points.length; i++) {
-        const point = points[i];
-
-        getStatusBox().textContent =
-          "Scanning area...\n" +
-          "Point " + (i + 1) + " of " + points.length + "\n" +
-          "Businesses found so far: " + businesses.length;
-
-        try {
-          const nearbyPlaces = await nearbySearch(point, keyword, spacingMeters);
-
-          for (const place of nearbyPlaces) {
-            if (!place.place_id) {
-              continue;
-            }
-
-            if (seenPlaceIds.has(place.place_id)) {
-              continue;
-            }
-
-            seenPlaceIds.add(place.place_id);
-
-            if (!place.geometry || !place.geometry.location) {
-              continue;
-            }
-
-            if (!bounds.contains(place.geometry.location)) {
-              continue;
-            }
-
-            const details = await getPlaceDetails(place.place_id);
-
-            const business = {
-              placeId: place.place_id,
-              name: details.name || place.name || "",
-              address: details.formatted_address || place.vicinity || "",
-              phone: details.formatted_phone_number || "",
-              website: details.website || "",
-              rating: details.rating || "",
-              userRatingsTotal: details.user_ratings_total || "",
-              googleMapsUrl: details.url || "",
-              latitude: place.geometry.location.lat(),
-              longitude: place.geometry.location.lng()
-            };
-
-            businesses.push(business);
-            addBusinessMarker(business);
-            renderResults();
-
-            await sleep(120);
-          }
-        } catch (error) {
-          console.error(error);
-        }
-
-        await sleep(250);
-      }
-
-      isScanning = false;
-      getScanButton().disabled = false;
-      getExportButton().disabled = businesses.length === 0;
-
-      getStatusBox().textContent =
-        "Scan complete.\n" +
-        "Businesses found: " + businesses.length;
+    function rotateLeft() {
+      const currentHeading = map.getHeading() || 0;
+      map.setHeading(currentHeading - 20);
     }
 
-    function createGridPoints(bounds, spacingMeters) {
-      const northEast = bounds.getNorthEast();
-      const southWest = bounds.getSouthWest();
+    function rotateRight() {
+      const currentHeading = map.getHeading() || 0;
+      map.setHeading(currentHeading + 20);
+    }
 
-      const north = northEast.lat();
-      const east = northEast.lng();
-      const south = southWest.lat();
-      const west = southWest.lng();
+    function updateStatus(message) {
+      document.getElementById("status").textContent = message;
+    }
 
-      const centerLat = (north + south) / 2;
+    function getDensitySettings() {
+      const density = document.getElementById("densitySelect").value;
 
-      const metersPerDegreeLat = 111320;
-      const metersPerDegreeLng =
-        111320 * Math.cos(centerLat * Math.PI / 180);
+      if (density === "fast") {
+        return {
+          gridStepMultiplier: 0.9,
+          searchRadiusMultiplier: 0.9
+        };
+      }
 
-      const latStep = spacingMeters / metersPerDegreeLat;
-      const lngStep = spacingMeters / metersPerDegreeLng;
+      if (density === "deep") {
+        return {
+          gridStepMultiplier: 0.45,
+          searchRadiusMultiplier: 0.7
+        };
+      }
+
+      return {
+        gridStepMultiplier: 0.65,
+        searchRadiusMultiplier: 0.8
+      };
+    }
+
+    function metersToLat(meters) {
+      return meters / 111320;
+    }
+
+    function metersToLng(meters, latitude) {
+      return meters / (111320 * Math.cos(latitude * Math.PI / 180));
+    }
+
+    function distanceMeters(lat1, lng1, lat2, lng2) {
+      const earthRadius = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return earthRadius * c;
+    }
+
+    function generateSearchPoints(center, radiusMeters) {
+      const settings = getDensitySettings();
+
+      const searchRadius = Math.max(60, Math.min(500, radiusMeters * settings.searchRadiusMultiplier));
+      const stepMeters = searchRadius * settings.gridStepMultiplier;
+
+      const centerLat = center.lat();
+      const centerLng = center.lng();
+
+      const latStep = metersToLat(stepMeters);
+      const lngStep = metersToLng(stepMeters, centerLat);
+
+      const latRadius = metersToLat(radiusMeters);
+      const lngRadius = metersToLng(radiusMeters, centerLat);
 
       const points = [];
 
-      for (let lat = south; lat <= north; lat += latStep) {
-        for (let lng = west; lng <= east; lng += lngStep) {
-          points.push(new google.maps.LatLng(lat, lng));
+      for (let lat = centerLat - latRadius; lat <= centerLat + latRadius; lat += latStep) {
+        for (let lng = centerLng - lngRadius; lng <= centerLng + lngRadius; lng += lngStep) {
+          const distance = distanceMeters(centerLat, centerLng, lat, lng);
+
+          if (distance <= radiusMeters) {
+            points.push({
+              location: new google.maps.LatLng(lat, lng),
+              radius: searchRadius
+            });
+          }
         }
       }
 
-      points.push(bounds.getCenter());
+      points.push({
+        location: center,
+        radius: searchRadius
+      });
 
       return points;
     }
 
-    function nearbySearch(location, keyword, spacingMeters) {
-      return new Promise(function(resolve, reject) {
+    async function scanCircle() {
+      clearResults();
+
+      const center = circle.getCenter();
+      const radius = circle.getRadius();
+      const searchPoints = generateSearchPoints(center, radius);
+
+      updateStatus(`Scanning ${searchPoints.length} points...`);
+
+      for (let i = 0; i < searchPoints.length; i++) {
+        updateStatus(`Scanning point ${i + 1} of ${searchPoints.length}...`);
+        await nearbySearch(searchPoints[i].location, searchPoints[i].radius);
+        await wait(350);
+      }
+
+      updateStatus(`Finished. Found ${allBusinesses.length} unique businesses.`);
+      renderResults();
+    }
+
+    function nearbySearch(location, radius) {
+      return new Promise((resolve) => {
         const request = {
           location: location,
-          radius: Math.min(Math.max(spacingMeters, 300), 50000),
-          keyword: keyword
+          radius: radius,
+          type: "establishment"
         };
 
-        placesService.nearbySearch(request, function(results, status) {
-          if (status === google.maps.places.PlacesServiceStatus.OK) {
-            resolve(results || []);
-            return;
+        placesService.nearbySearch(request, async function(results, status, pagination) {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            for (const place of results) {
+              if (!place.place_id || seenPlaceIds.has(place.place_id)) {
+                continue;
+              }
+
+              seenPlaceIds.add(place.place_id);
+
+              const details = await getPlaceDetails(place.place_id);
+
+              if (details) {
+                allBusinesses.push(details);
+              }
+
+              await wait(120);
+            }
+
+            if (pagination && pagination.hasNextPage) {
+              await wait(2200);
+              pagination.nextPage();
+            }
           }
 
-          if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-            resolve([]);
-            return;
-          }
-
-          if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-            setTimeout(function() {
-              nearbySearch(location, keyword, spacingMeters)
-                .then(resolve)
-                .catch(reject);
-            }, 1000);
-            return;
-          }
-
-          reject(new Error("Nearby Search failed: " + status));
+          resolve();
         });
       });
     }
 
     function getPlaceDetails(placeId) {
-      return new Promise(function(resolve) {
+      return new Promise((resolve) => {
         const request = {
           placeId: placeId,
           fields: [
+            "place_id",
             "name",
             "formatted_address",
+            "geometry",
             "formatted_phone_number",
+            "international_phone_number",
             "website",
+            "url",
             "rating",
             "user_ratings_total",
-            "url"
+            "business_status",
+            "types"
           ]
         };
 
         placesService.getDetails(request, function(place, status) {
-          if (status === google.maps.places.PlacesServiceStatus.OK) {
-            resolve(place || {});
-            return;
+          if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+            resolve({
+              placeId: place.place_id || "",
+              name: place.name || "",
+              address: place.formatted_address || "",
+              phone: place.formatted_phone_number || place.international_phone_number || "",
+              website: place.website || "",
+              googleMapsUrl: place.url || "",
+              rating: place.rating || "",
+              reviewCount: place.user_ratings_total || "",
+              businessStatus: place.business_status || "",
+              types: place.types ? place.types.join(", ") : "",
+              latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
+              longitude: place.geometry && place.geometry.location ? place.geometry.location.lng() : "",
+              startedOrAddedToMaps: "Not provided by Google Places API"
+            });
+          } else {
+            resolve(null);
           }
-
-          if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-            setTimeout(function() {
-              getPlaceDetails(placeId).then(resolve);
-            }, 1000);
-            return;
-          }
-
-          resolve({});
         });
       });
     }
 
-    function addBusinessMarker(business) {
-      const marker = new google.maps.Marker({
-        position: {
-          lat: business.latitude,
-          lng: business.longitude
-        },
-        map: map,
-        title: business.name
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content:
-          "<strong>" + escapeHTML(business.name) + "</strong><br>" +
-          escapeHTML(business.address) + "<br>" +
-          escapeHTML(business.phone)
-      });
-
-      marker.addListener("click", function() {
-        infoWindow.open(map, marker);
-      });
-
-      markers.push(marker);
-    }
-
-    function clearBusinessMarkers() {
-      for (const marker of markers) {
-        if (marker.getLabel && marker.getLabel()) {
-          continue;
-        }
-
-        marker.setMap(null);
-      }
-
-      markers = markers.filter(function(marker) {
-        return marker.getLabel && marker.getLabel();
-      });
-    }
-
     function renderResults() {
-      getResultCount().textContent = "Results: " + businesses.length;
+      const resultsDiv = document.getElementById("results");
+      const countSpan = document.getElementById("resultCount");
 
-      if (businesses.length === 0) {
-        getResultsBox().innerHTML = "";
-        return;
+      countSpan.textContent = allBusinesses.length;
+      resultsDiv.innerHTML = "";
+
+      allBusinesses.sort((a, b) => {
+        const aMissing = a.website ? 1 : 0;
+        const bMissing = b.website ? 1 : 0;
+        return aMissing - bMissing;
+      });
+
+      for (const business of allBusinesses) {
+        const card = document.createElement("div");
+        card.className = "business-card";
+
+        const websiteText = business.website
+          ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
+          : `<span class="missing">No website found</span>`;
+
+        card.innerHTML = `
+          <strong>${escapeHtml(business.name)}</strong><br>
+          ${escapeHtml(business.address)}<br><br>
+
+          Phone: ${escapeHtml(business.phone || "Not found")}<br>
+          Website: ${websiteText}<br>
+          Rating: ${escapeHtml(String(business.rating || "Not found"))}
+          ${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>
+          Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
+          Types: ${escapeHtml(business.types || "Not found")}<br>
+          Started / Added to Maps: ${escapeHtml(business.startedOrAddedToMaps)}<br>
+
+          ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open in Google Maps</a>` : ""}
+        `;
+
+        resultsDiv.appendChild(card);
       }
-
-      getResultsBox().innerHTML = businesses.map(function(business, index) {
-        const websiteHTML = business.website
-          ? '<p><strong>Website:</strong> <a href="' +
-            escapeAttribute(business.website) +
-            '" target="_blank" rel="noopener noreferrer">' +
-            escapeHTML(business.website) +
-            "</a></p>"
-          : "<p><strong>Website:</strong> Not found</p>";
-
-        const mapsHTML = business.googleMapsUrl
-          ? '<p><a href="' +
-            escapeAttribute(business.googleMapsUrl) +
-            '" target="_blank" rel="noopener noreferrer">Open in Google Maps</a></p>'
-          : "";
-
-        return (
-          '<div class="business-card">' +
-            "<h3>" +
-              (index + 1) +
-              ". " +
-              escapeHTML(business.name) +
-            "</h3>" +
-            "<p><strong>Address:</strong> " +
-              escapeHTML(business.address || "Not found") +
-            "</p>" +
-            "<p><strong>Phone:</strong> " +
-              escapeHTML(business.phone || "Not found") +
-            "</p>" +
-            websiteHTML +
-            "<p><strong>Rating:</strong> " +
-              escapeHTML(String(business.rating || "Not found")) +
-            "</p>" +
-            "<p><strong>Reviews:</strong> " +
-              escapeHTML(String(business.userRatingsTotal || "Not found")) +
-            "</p>" +
-            '<p class="small"><strong>Lat/Lng:</strong> ' +
-              business.latitude +
-              ", " +
-              business.longitude +
-            "</p>" +
-            mapsHTML +
-          "</div>"
-        );
-      }).join("");
     }
 
     function exportCSV() {
-      if (businesses.length === 0) {
+      if (allBusinesses.length === 0) {
+        alert("No results to export.");
         return;
       }
 
       const headers = [
-        "Name",
+        "Business Name",
         "Address",
         "Phone",
         "Website",
-        "Rating",
-        "Reviews",
         "Google Maps URL",
+        "Rating",
+        "Review Count",
+        "Business Status",
+        "Types",
         "Latitude",
         "Longitude",
-        "Place ID"
+        "Started Or Added To Maps"
       ];
 
-      const rows = businesses.map(function(business) {
-        return [
-          business.name,
-          business.address,
-          business.phone,
-          business.website,
-          business.rating,
-          business.userRatingsTotal,
-          business.googleMapsUrl,
-          business.latitude,
-          business.longitude,
-          business.placeId
-        ];
-      });
+      const rows = allBusinesses.map(business => [
+        business.name,
+        business.address,
+        business.phone,
+        business.website,
+        business.googleMapsUrl,
+        business.rating,
+        business.reviewCount,
+        business.businessStatus,
+        business.types,
+        business.latitude,
+        business.longitude,
+        business.startedOrAddedToMaps
+      ]);
 
-      const csvContent = [headers].concat(rows).map(function(row) {
-        return row.map(function(value) {
-          const safeValue = String(value ?? "").replace(/"/g, '""');
-          return '"' + safeValue + '"';
-        }).join(",");
-      }).join("\n");
+      let csvContent = "";
+      csvContent += headers.map(csvEscape).join(",") + "\n";
 
-      const blob = new Blob([csvContent], {
-        type: "text/csv;charset=utf-8;"
-      });
+      for (const row of rows) {
+        csvContent += row.map(csvEscape).join(",") + "\n";
+      }
 
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
+
       const link = document.createElement("a");
-
       link.href = url;
-      link.download = "business-results.csv";
-
+      link.download = "business_scan_results.csv";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -695,43 +519,23 @@
       URL.revokeObjectURL(url);
     }
 
-    function clearAll() {
-      clearSelectionOnly();
-      businesses = [];
-      renderResults();
+    function clearResults() {
+      allBusinesses = [];
+      seenPlaceIds = new Set();
 
-      getResultCount().textContent = "Results: 0";
-      getScanButton().disabled = true;
-      getExportButton().disabled = true;
-
-      getStatusBox().textContent =
-        "Click the map once for corner 1, then click again for corner 2.";
+      document.getElementById("results").innerHTML = "";
+      document.getElementById("resultCount").textContent = "0";
+      updateStatus("Results cleared.");
     }
 
-    function clearSelectionOnly() {
-      cornerOne = null;
-      cornerTwo = null;
-
-      if (selectedRectangle) {
-        selectedRectangle.setMap(null);
-        selectedRectangle = null;
-      }
-
-      for (const marker of markers) {
-        marker.setMap(null);
-      }
-
-      markers = [];
+    function csvEscape(value) {
+      const text = String(value || "");
+      const escaped = text.replace(/"/g, '""');
+      return `"${escaped}"`;
     }
 
-    function sleep(ms) {
-      return new Promise(function(resolve) {
-        setTimeout(resolve, ms);
-      });
-    }
-
-    function escapeHTML(value) {
-      return String(value)
+    function escapeHtml(value) {
+      return String(value || "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -739,17 +543,15 @@
         .replaceAll("'", "&#039;");
     }
 
-    function escapeAttribute(value) {
-      return escapeHTML(value);
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
-
-    window.initMap = initMap;
   </script>
 
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDUx6QIBzCxqNr3_2G1L2iSmn0dT9dRLro&libraries=places&callback=initMap"
     async
-    defer>
+    defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDUx6QIBzCxqNr3_2G1L2iSmn0dT9dRLro&libraries=places&callback=initMap">
   </script>
 </body>
 </html>
