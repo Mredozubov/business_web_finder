@@ -28,21 +28,35 @@
 
     #mapHint {
       position: fixed;
-      top: 16px;
-      left: 16px;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 8;
-      background: rgba(17, 24, 39, 0.92);
+      background: rgba(17, 24, 39, 0.94);
       color: white;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 14px;
+      padding: 14px 42px 14px 18px;
+      border-radius: 12px;
+      font-size: 16px;
       box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-      pointer-events: none;
+    }
+
+    #closeHintButton {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      background: transparent;
+      color: white;
+      border: none;
+      font-size: 20px;
+      width: auto;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
     }
 
     #mapControls {
       position: fixed;
-      top: 60px;
+      top: 74px;
       left: 16px;
       z-index: 8;
       width: 310px;
@@ -136,7 +150,7 @@
 
     #panelToggle {
       top: 16px;
-      right: 390px;
+      right: 404px;
       border-radius: 10px 0 0 10px;
     }
 
@@ -308,25 +322,27 @@
     a { word-break: break-word; }
 
     .info-window-content {
-      max-width: 280px;
-      font-size: 13px;
-      line-height: 1.4;
+      max-width: 230px;
+      font-size: 12px;
+      line-height: 1.25;
     }
 
     .info-window-content strong {
-      font-size: 15px;
+      font-size: 14px;
     }
 
     @media (max-width: 700px) {
       #mapHint {
         top: 10px;
-        left: 10px;
-        right: 10px;
+        left: 50%;
+        right: auto;
+        width: calc(100vw - 20px);
         text-align: center;
+        font-size: 15px;
       }
 
       #mapControls {
-        top: 58px;
+        top: 66px;
         left: 10px;
         right: 10px;
         width: auto;
@@ -386,7 +402,10 @@
   <div id="app">
     <div id="map"></div>
 
-    <div id="mapHint">Hint: double-click the map to place the scan circle</div>
+    <div id="mapHint">
+      Hint: double-click the map to place the scan circle
+      <button id="closeHintButton" onclick="closeHint()">×</button>
+    </div>
 
     <div id="mapControls">
       <label>Circle Radius: <span id="radiusLabel">500 feet</span></label>
@@ -494,6 +513,39 @@
     const MAX_PANEL_WIDTH = 760;
     const MIN_PANEL_HEIGHT = 0;
 
+    const DEEP_SCAN_KEYWORDS = [
+      "store",
+      "business",
+      "shop",
+      "restaurant",
+      "food",
+      "cafe",
+      "bar",
+      "bakery",
+      "pharmacy",
+      "doctor",
+      "dentist",
+      "medical",
+      "school",
+      "real estate school",
+      "hardware store",
+      "hardware",
+      "clothing store",
+      "beauty salon",
+      "hair salon",
+      "gym",
+      "office",
+      "professional services",
+      "lawyer",
+      "accountant",
+      "real estate",
+      "insurance",
+      "repair",
+      "market",
+      "liquor store",
+      "supermarket"
+    ];
+
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
         center: DEFAULT_CENTER,
@@ -539,6 +591,10 @@
       updateRemoveCircleButton();
       updateBusinessTypeFilter();
       updateStatus("Ready. Double-click the map to place your scan circle.");
+    }
+
+    function closeHint() {
+      document.getElementById("mapHint").style.display = "none";
     }
 
     function feetToMeters(feet) {
@@ -1043,17 +1099,45 @@
       const scannedCenter = circle.getCenter();
       const radiusMeters = circle.getRadius();
       const searchPoints = generateSearchPoints(scannedCenter, radiusMeters);
+      const density = document.getElementById("densitySelect").value;
+
+      const totalNearbySteps = searchPoints.length;
+      const totalDeepSteps = density === "deep" ? searchPoints.length * DEEP_SCAN_KEYWORDS.length : 0;
+      const totalSteps = totalNearbySteps + totalDeepSteps;
+
+      let completedSteps = 0;
 
       updateProgress(0);
-      updateStatus(`Scanning 0% - 0 of ${searchPoints.length} points...`);
+      updateStatus(`Scanning 0% - 0 of ${totalSteps} searches...`);
 
       for (let i = 0; i < searchPoints.length; i++) {
-        const percent = Math.round(((i + 1) / searchPoints.length) * 100);
-        updateStatus(`Scanning ${percent}% - point ${i + 1} of ${searchPoints.length}...`);
+        await nearbySearch(searchPoints[i].location, searchPoints[i].radius);
+
+        completedSteps++;
+        const percent = Math.round((completedSteps / totalSteps) * 100);
+        updateStatus(`Scanning ${percent}% - ${completedSteps} of ${totalSteps} searches...`);
         updateProgress(percent);
 
-        await nearbySearch(searchPoints[i].location, searchPoints[i].radius);
         await wait(350);
+      }
+
+      if (density === "deep") {
+        for (let i = 0; i < searchPoints.length; i++) {
+          for (let k = 0; k < DEEP_SCAN_KEYWORDS.length; k++) {
+            await textSearchNearby(
+              DEEP_SCAN_KEYWORDS[k],
+              searchPoints[i].location,
+              searchPoints[i].radius
+            );
+
+            completedSteps++;
+            const percent = Math.round((completedSteps / totalSteps) * 100);
+            updateStatus(`Deep scanning ${percent}% - ${completedSteps} of ${totalSteps} searches...`);
+            updateProgress(percent);
+
+            await wait(350);
+          }
+        }
       }
 
       updateBusinessTypeFilter();
@@ -1074,6 +1158,50 @@
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
             for (const place of results) {
               if (!place.place_id || seenPlaceIds.has(place.place_id)) continue;
+
+              seenPlaceIds.add(place.place_id);
+
+              const details = await getPlaceDetails(place.place_id);
+
+              if (details) allBusinesses.push(details);
+
+              await wait(120);
+            }
+
+            if (pagination && pagination.hasNextPage) {
+              await wait(2200);
+              pagination.nextPage();
+            }
+          }
+
+          resolve();
+        });
+      });
+    }
+
+    function textSearchNearby(keyword, location, radius) {
+      return new Promise((resolve) => {
+        const request = {
+          query: keyword,
+          location: location,
+          radius: radius
+        };
+
+        placesService.textSearch(request, async function(results, status, pagination) {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            for (const place of results) {
+              if (!place.place_id || seenPlaceIds.has(place.place_id)) continue;
+
+              if (!place.geometry || !place.geometry.location) continue;
+
+              const distance = distanceMeters(
+                location.lat(),
+                location.lng(),
+                place.geometry.location.lat(),
+                place.geometry.location.lng()
+              );
+
+              if (distance > radius) continue;
 
               seenPlaceIds.add(place.place_id);
 
@@ -1235,6 +1363,13 @@
 
         card.addEventListener("click", function() {
           highlightBusiness(business);
+
+          if (business.latitude && business.longitude) {
+            map.panTo({
+              lat: Number(business.latitude),
+              lng: Number(business.longitude)
+            });
+          }
         });
 
         resultsDiv.appendChild(card);
@@ -1327,23 +1462,21 @@
 
     function buildInfoWindowContent(business) {
       const websiteSection = business.website
-        ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
-        : `<span class="missing">No website found</span>`;
+        ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
+        : `<span class="missing">Website: not found</span>`;
 
       return `
         <div class="info-window-content">
           <strong>${escapeHtml(business.name)}</strong><br>
-          ${escapeHtml(business.address)}<br><br>
-
+          ${escapeHtml(business.address)}<br>
           Phone: ${escapeHtml(business.phone || "Not found")}<br>
-          Website: ${websiteSection}<br>
+          ${websiteSection}<br>
           Rating: ${escapeHtml(String(business.rating || "Not found"))}
-          ${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>
-          Last Review Date: ${escapeHtml(business.latestReviewDate || "Not found")}<br>
+          ${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}<br>
+          Last review: ${escapeHtml(business.latestReviewDate || "Not found")}<br>
           Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
-          Types: ${escapeHtml(business.types || "Not found")}<br>
-
-          ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open in Google Maps</a>` : ""}
+          Types: ${escapeHtml(business.types || "Not found")}
+          ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open Maps</a>` : ""}
         </div>
       `;
     }
