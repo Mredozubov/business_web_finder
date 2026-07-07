@@ -26,12 +26,26 @@
       width: 100%;
     }
 
+    #mapHint {
+      position: fixed;
+      left: 16px;
+      bottom: 18px;
+      z-index: 8;
+      background: rgba(17, 24, 39, 0.92);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+
     #panel {
       position: fixed;
       top: 0;
       right: 0;
       width: 390px;
-      max-width: 88vw;
+      max-width: 95vw;
       height: 100vh;
       background: white;
       padding: 16px;
@@ -60,6 +74,8 @@
       font-size: 15px;
       font-weight: bold;
       cursor: pointer;
+      user-select: none;
+      touch-action: none;
     }
 
     #panelToggle {
@@ -73,6 +89,7 @@
       right: 390px;
       border-radius: 10px 0 0 10px;
       background: #374151;
+      cursor: ew-resize;
     }
 
     #panel.closed + #panelToggle {
@@ -174,36 +191,6 @@
 
     a { word-break: break-word; }
 
-    .resize-handle {
-      width: 28px;
-      height: 28px;
-      background: white;
-      border: 3px solid #2563eb;
-      border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      position: relative;
-    }
-
-    .resize-handle::before,
-    .resize-handle::after {
-      content: "";
-      position: absolute;
-      background: #2563eb;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    .resize-handle::before {
-      width: 14px;
-      height: 3px;
-    }
-
-    .resize-handle::after {
-      width: 3px;
-      height: 14px;
-    }
-
     @media (max-width: 700px) {
       #panel {
         top: auto;
@@ -233,6 +220,7 @@
         bottom: calc(58vh + 52px);
         right: 12px;
         border-radius: 10px 10px 0 0;
+        cursor: ns-resize;
       }
 
       #panel.closed + #panelToggle {
@@ -244,6 +232,13 @@
         bottom: 106px;
         right: 12px;
       }
+
+      #mapHint {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        text-align: center;
+      }
     }
   </style>
 </head>
@@ -252,10 +247,12 @@
   <div id="app">
     <div id="map"></div>
 
+    <div id="mapHint">Hint: double-click the map to place the scan circle</div>
+
     <div id="panel">
       <h2>Business Area Scanner</h2>
 
-      <button class="settings" onclick="toggleSearchSettings()">Search Settings</button>
+      <button id="settingsButton" class="settings" onclick="toggleSearchSettings()">Search Settings ↓</button>
 
       <div id="searchSettings">
         <label>Search by Business Name</label>
@@ -281,16 +278,20 @@
           <option value="rating-asc">Rating Low-High</option>
           <option value="review-desc">Last Review Newest-Oldest</option>
           <option value="review-asc">Last Review Oldest-Newest</option>
+          <option value="website-top">Has Website On Top</option>
+          <option value="website-bottom">Has Website On Bottom</option>
+          <option value="no-website-top">No Website On Top</option>
+          <option value="no-website-bottom">No Website On Bottom</option>
         </select>
 
         <button onclick="exportCSV()" class="green">Export CSV</button>
       </div>
 
       <p>
-        Double-click the map to place the scan circle. Drag the outside resize handle or use the slider below.
+        Double-click the map to place the scan circle. Drag the center dot to move it, drag the outside handle to resize it, or use the slider below.
       </p>
 
-      <label>Circle Radius: <span id="radiusLabel">Not placed</span></label>
+      <label>Circle Radius: <span id="radiusLabel">500 meters</span></label>
       <input id="radiusSlider" type="range" min="50" max="3000" step="50" value="500" />
 
       <button onclick="scanCircle()">Scan Circle</button>
@@ -305,12 +306,13 @@
     </div>
 
     <button id="panelToggle" class="floating-button" onclick="togglePanel()">Hide</button>
-    <button id="slideToggle" class="floating-button" onclick="togglePanel()">Slide</button>
+    <button id="slideToggle" class="floating-button">Slide</button>
   </div>
 
   <script>
     let map;
     let circle = null;
+    let centerMarker = null;
     let resizeMarker = null;
     let placesService;
 
@@ -319,8 +321,13 @@
     let markers = [];
     let activeInfoWindow = null;
 
+    let isSlidingPanel = false;
+    let savedCircleRadius = 500;
+
     const DEFAULT_CENTER = { lat: 40.7128, lng: -74.0060 };
     const DEFAULT_RADIUS = 500;
+    const MIN_PANEL_WIDTH = 300;
+    const MAX_PANEL_WIDTH = 760;
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
@@ -340,20 +347,80 @@
       });
 
       document.getElementById("radiusSlider").addEventListener("input", function() {
-        if (!circle) {
-          alert("Double-click the map to place a circle first.");
-          this.value = DEFAULT_RADIUS;
-          return;
-        }
-
         const newRadius = Number(this.value);
-        circle.setRadius(newRadius);
-        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+        savedCircleRadius = newRadius;
         updateRadiusLabel(newRadius);
+
+        if (circle) {
+          circle.setRadius(newRadius);
+          resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+        }
       });
 
+      updateRadiusLabel(savedCircleRadius);
+      setupPanelSlider();
+      updateFloatingButtons();
       updateStatus("Ready. Double-click the map to place your scan circle.");
     }
+
+    function setupPanelSlider() {
+      const slideButton = document.getElementById("slideToggle");
+
+      slideButton.addEventListener("pointerdown", function(event) {
+        event.preventDefault();
+        isSlidingPanel = true;
+        slideButton.setPointerCapture(event.pointerId);
+      });
+
+      slideButton.addEventListener("pointermove", function(event) {
+        if (!isSlidingPanel) return;
+
+        const panel = document.getElementById("panel");
+
+        if (window.innerWidth <= 700) {
+          const newHeight = window.innerHeight - event.clientY;
+          const clampedHeight = Math.max(240, Math.min(window.innerHeight * 0.9, newHeight));
+          panel.style.height = clampedHeight + "px";
+        } else {
+          const newWidth = window.innerWidth - event.clientX;
+          const clampedWidth = Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, newWidth));
+          panel.style.width = clampedWidth + "px";
+        }
+
+        panel.classList.remove("closed");
+        document.getElementById("panelToggle").textContent = "Hide";
+        updateFloatingButtons();
+      });
+
+      slideButton.addEventListener("pointerup", function(event) {
+        isSlidingPanel = false;
+        slideButton.releasePointerCapture(event.pointerId);
+      });
+
+      slideButton.addEventListener("pointercancel", function() {
+        isSlidingPanel = false;
+      });
+    }
+
+    function updateFloatingButtons() {
+      const panel = document.getElementById("panel");
+      const panelToggle = document.getElementById("panelToggle");
+      const slideToggle = document.getElementById("slideToggle");
+
+      if (window.innerWidth <= 700) {
+        const panelHeight = panel.offsetHeight;
+        panelToggle.style.bottom = panel.classList.contains("closed") ? "54px" : panelHeight + "px";
+        slideToggle.style.bottom = panel.classList.contains("closed") ? "106px" : (panelHeight + 52) + "px";
+        panelToggle.style.right = "12px";
+        slideToggle.style.right = "12px";
+      } else {
+        const panelWidth = panel.offsetWidth;
+        panelToggle.style.right = panel.classList.contains("closed") ? "0px" : panelWidth + "px";
+        slideToggle.style.right = panel.classList.contains("closed") ? "0px" : panelWidth + "px";
+      }
+    }
+
+    window.addEventListener("resize", updateFloatingButtons);
 
     function togglePanel() {
       const panel = document.getElementById("panel");
@@ -361,20 +428,26 @@
 
       panel.classList.toggle("closed");
       hideButton.textContent = panel.classList.contains("closed") ? "Show" : "Hide";
+      updateFloatingButtons();
     }
 
     function toggleSearchSettings() {
-      document.getElementById("searchSettings").classList.toggle("open");
+      const settings = document.getElementById("searchSettings");
+      const button = document.getElementById("settingsButton");
+
+      settings.classList.toggle("open");
+      button.textContent = settings.classList.contains("open") ? "Search Settings ↑" : "Search Settings ↓";
     }
 
     function placeCircle(center) {
-      if (circle) circle.setMap(null);
-      if (resizeMarker) resizeMarker.setMap(null);
+      removeCircleOnly();
+
+      const radiusToUse = savedCircleRadius;
 
       circle = new google.maps.Circle({
         map: map,
         center: center,
-        radius: DEFAULT_RADIUS,
+        radius: radiusToUse,
         clickable: false,
         draggable: false,
         editable: false,
@@ -385,9 +458,21 @@
         strokeWeight: 2
       });
 
+      centerMarker = new google.maps.Marker({
+        map: map,
+        position: center,
+        draggable: true,
+        title: "Drag to move scan circle",
+        icon: {
+          url: makeCenterDotIcon(),
+          scaledSize: new google.maps.Size(24, 24),
+          anchor: new google.maps.Point(12, 12)
+        }
+      });
+
       resizeMarker = new google.maps.Marker({
         map: map,
-        position: getResizeMarkerPosition(center, DEFAULT_RADIUS),
+        position: getResizeMarkerPosition(center, radiusToUse),
         draggable: true,
         title: "Drag to resize scan circle",
         icon: {
@@ -395,6 +480,18 @@
           scaledSize: new google.maps.Size(32, 32),
           anchor: new google.maps.Point(16, 16)
         }
+      });
+
+      centerMarker.addListener("drag", function(event) {
+        const newCenter = event.latLng;
+        circle.setCenter(newCenter);
+        resizeMarker.setPosition(getResizeMarkerPosition(newCenter, circle.getRadius()));
+      });
+
+      centerMarker.addListener("dragend", function(event) {
+        const newCenter = event.latLng;
+        circle.setCenter(newCenter);
+        resizeMarker.setPosition(getResizeMarkerPosition(newCenter, circle.getRadius()));
       });
 
       resizeMarker.addListener("drag", function(event) {
@@ -405,19 +502,33 @@
           event.latLng.lng()
         );
 
-        circle.setRadius(newRadius);
-        document.getElementById("radiusSlider").value = Math.min(Math.round(newRadius), 3000);
-        updateRadiusLabel(newRadius);
+        savedCircleRadius = Math.max(50, Math.min(3000, Math.round(newRadius)));
+        circle.setRadius(savedCircleRadius);
+        document.getElementById("radiusSlider").value = savedCircleRadius;
+        updateRadiusLabel(savedCircleRadius);
       });
 
       resizeMarker.addListener("dragend", function() {
-        const newRadius = circle.getRadius();
-        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), newRadius));
+        savedCircleRadius = Math.round(circle.getRadius());
+        resizeMarker.setPosition(getResizeMarkerPosition(circle.getCenter(), savedCircleRadius));
+        document.getElementById("radiusSlider").value = savedCircleRadius;
+        updateRadiusLabel(savedCircleRadius);
       });
 
-      document.getElementById("radiusSlider").value = DEFAULT_RADIUS;
-      updateRadiusLabel(DEFAULT_RADIUS);
-      updateStatus("Circle placed. Drag the expand handle or use the radius slider.");
+      document.getElementById("radiusSlider").value = radiusToUse;
+      updateRadiusLabel(radiusToUse);
+      updateStatus("Circle placed. Drag the center dot to move it or drag the outside handle to resize it.");
+    }
+
+    function makeCenterDotIcon() {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8" fill="#111827" stroke="white" stroke-width="3"/>
+          <circle cx="12" cy="12" r="3" fill="white"/>
+        </svg>
+      `;
+
+      return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
     }
 
     function makeResizeHandleIcon() {
@@ -426,6 +537,7 @@
           <circle cx="16" cy="16" r="13" fill="white" stroke="#2563eb" stroke-width="4"/>
           <path d="M10 16H22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
           <path d="M16 10V22" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+          <path d="M9 9L5 5M23 9L27 5M9 23L5 27M23 23L27 27" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
         </svg>
       `;
 
@@ -447,19 +559,27 @@
       document.getElementById("radiusLabel").textContent = `${Math.round(radius)} meters`;
     }
 
-    function removeCircle() {
+    function removeCircleOnly() {
       if (circle) {
         circle.setMap(null);
         circle = null;
+      }
+
+      if (centerMarker) {
+        centerMarker.setMap(null);
+        centerMarker = null;
       }
 
       if (resizeMarker) {
         resizeMarker.setMap(null);
         resizeMarker = null;
       }
+    }
 
-      document.getElementById("radiusLabel").textContent = "Not placed";
-      document.getElementById("radiusSlider").value = DEFAULT_RADIUS;
+    function removeCircle() {
+      removeCircleOnly();
+      updateRadiusLabel(savedCircleRadius);
+      document.getElementById("radiusSlider").value = savedCircleRadius;
       updateStatus("Circle removed. Double-click the map to place a new one.");
     }
 
@@ -700,6 +820,23 @@
         if (sortValue === "rating-asc") return Number(a.rating || 0) - Number(b.rating || 0);
         if (sortValue === "review-desc") return Number(b.latestReviewTimestamp || 0) - Number(a.latestReviewTimestamp || 0);
         if (sortValue === "review-asc") return Number(a.latestReviewTimestamp || 0) - Number(b.latestReviewTimestamp || 0);
+
+        if (sortValue === "website-top") {
+          return Number(Boolean(b.website)) - Number(Boolean(a.website));
+        }
+
+        if (sortValue === "website-bottom") {
+          return Number(Boolean(a.website)) - Number(Boolean(b.website));
+        }
+
+        if (sortValue === "no-website-top") {
+          return Number(!b.website) - Number(!a.website);
+        }
+
+        if (sortValue === "no-website-bottom") {
+          return Number(!a.website) - Number(!b.website);
+        }
+
         return 0;
       });
 
