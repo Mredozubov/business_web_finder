@@ -79,7 +79,7 @@
     .scanner-mode-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 13px; line-height: 1.1; border: 2px solid currentColor; background: white; }
     .scanner-mode-standard { color: #166534; }
     .scanner-mode-smart { color: #db2777; }
-    .scanner-mode-deep { color: #1d4ed8; }
+    .scanner-mode-deep { color: #5b21b6; background: #faf5ff; }
     input, select { width: 100%; padding: 9px; margin-top: 6px; }
     input[type="range"] { padding: 0; }
     button { width: 100%; padding: 11px; margin-top: 10px; border: 2px solid #2563eb; background: white; color: #1d4ed8; font-weight: bold; cursor: pointer; border-radius: 7px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
@@ -111,7 +111,7 @@
     .has-website { color: #16a34a; font-weight: bold; }
     .loading-text { color: #6b7280; font-style: italic; }
     a { word-break: break-word; }
-    .info-window-content { max-width: 190px; font-size: 11px; line-height: 1.12; }
+    .info-window-content { max-width: 175px; font-size: 10.5px; line-height: 1.08; }
     .info-window-content strong { font-size: 12px; }
 
     @media (max-width: 700px) {
@@ -125,6 +125,83 @@
       #panelDragEdge.closed-grab-bar { height: 34px; bottom: 0 !important; background: linear-gradient(180deg, #111827, #374151); border-top: 2px solid white; box-shadow: 0 -3px 12px rgba(0,0,0,0.35); }
       #panelDragEdge.closed-grab-bar::after { content: "︿"; top: 4px; left: 50%; transform: translateX(-50%); font-size: 24px; }
       #panelToggle { top: auto; bottom: calc(58vh + 16px); right: 12px; border-radius: 10px 10px 0 0; }
+    }
+
+
+    /* v7 updates */
+    #mapHint { transition: opacity 2s ease; }
+    #mapHint.hint-fading { opacity: 0; pointer-events: none; }
+    .scanner-mode-deep { color: #5b21b6; background: #faf5ff; }
+    .alphabet-scroller {
+      display: none;
+      position: fixed;
+      z-index: 21;
+      right: 7px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      max-height: 72vh;
+      overflow: hidden;
+      background: rgba(255,255,255,0.94);
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      padding: 5px 3px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+      user-select: none;
+      touch-action: none;
+    }
+    .alphabet-scroller.visible { display: flex; flex-direction: column; justify-content: space-around; align-items: center; }
+    .alphabet-button {
+      width: 22px;
+      height: 18px;
+      min-height: 14px;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      color: #111827;
+      font-size: 11px;
+      line-height: 1;
+      box-shadow: none;
+      border-radius: 999px;
+      transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+    }
+    .alphabet-button:hover,
+    .alphabet-button.active {
+      background: #ede9fe;
+      color: #5b21b6;
+      transform: scale(1.35);
+    }
+    @media (max-width: 700px) {
+      #mapControls {
+        left: auto !important;
+        right: 10px !important;
+        width: 104px !important;
+        gap: 5px !important;
+      }
+      .map-control-button,
+      .icon-button {
+        justify-content: center;
+        text-align: center;
+        padding: 7px 8px;
+        font-size: 12px;
+        min-height: 34px;
+      }
+      .alphabet-scroller {
+        right: 4px;
+        width: 30px;
+        top: auto;
+        transform: none;
+      }
+      .alphabet-button {
+        width: 24px;
+        height: 17px;
+        font-size: 11px;
+      }
+      .alphabet-button.active {
+        transform: scale(1.8);
+        background: #ddd6fe;
+      }
     }
   </style>
 </head>
@@ -211,6 +288,7 @@
       <h3>Total Results: <span id="totalResultCount">0</span></h3>
       <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
+      <div id="alphabetScroller" class="alphabet-scroller" aria-label="Business alphabet scroller"></div>
       <div id="results"></div>
     </div>
 
@@ -271,8 +349,7 @@
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        disableDoubleClickZoom: true,
-        gestureHandling: "greedy"
+        disableDoubleClickZoom: true
       });
 
       placesService = new google.maps.places.PlacesService(map);
@@ -314,6 +391,8 @@
       updateBusinessTypeFilter();
       updateStatus("Ready, double click to create a scan circle.");
       updateScannerModeTitle();
+      setupHintAutoFade();
+      buildAlphabetScroller();
     }
 
     function updateScannerModeTitle() {
@@ -338,7 +417,22 @@
       return density === "smart" || density === "deep";
     }
 
-    function closeHint() { document.getElementById("mapHint").style.display = "none"; }
+    function closeHint() {
+      const hint = document.getElementById("mapHint");
+      if (!hint || hint.style.display === "none") return;
+      hint.classList.add("hint-fading");
+      setTimeout(function() {
+        hint.style.display = "none";
+      }, 2000);
+    }
+
+    function setupHintAutoFade() {
+      document.addEventListener("pointerdown", function(event) {
+        const hint = document.getElementById("mapHint");
+        if (!hint || hint.style.display === "none" || hint.classList.contains("hint-fading")) return;
+        closeHint();
+      }, { once: true });
+    }
     function toggleCircleRadiusSettings() { document.getElementById("circleControlsBody").classList.toggle("hidden"); }
     function toggleMapSearchSettings() {
       document.getElementById("mapSearchSettings").classList.toggle("open");
@@ -480,8 +574,8 @@
         dragEdge.classList.toggle("closed-grab-bar", isClosed);
         dragEdge.style.bottom = panelHeight + "px";
         dragEdge.style.right = "0px";
-        mapControls.style.left = "10px";
-        mapControls.style.right = "auto";
+        mapControls.style.left = "auto";
+        mapControls.style.right = "10px";
         mapControls.style.bottom = (panelHeight + (isClosed ? 44 : 28)) + "px";
         mapControls.style.top = "auto";
       } else {
@@ -494,6 +588,7 @@
         mapControls.style.top = "16px";
         mapControls.style.bottom = "auto";
       }
+      updateAlphabetScroller();
     }
 
     let resizeResetTimer = null;
@@ -945,6 +1040,7 @@
         resultsDiv.appendChild(createBusinessCard(business));
       }
       updateBackToTopButton();
+      updateAlphabetScroller();
     }
 
     function addOrRefreshSingleBusiness(business) {
@@ -959,6 +1055,7 @@
       document.getElementById("filteredResultCount").textContent = document.querySelectorAll(".business-card").length;
       document.getElementById("clearResultsButton").style.display = "block";
       updateBackToTopButton();
+      updateAlphabetScroller();
     }
 
     function updateBusinessCard(business) {
@@ -973,6 +1070,7 @@
       card.className = "business-card";
       if (!business.detailsLoaded) card.classList.add("loading-details");
       card.id = `business-card-${business.placeId}`;
+      card.dataset.letter = getBusinessSortLetter(business);
       const websiteText = business.website ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">No website found</span>` : `<span class="loading-text">Loading website...</span>`;
       const phoneText = business.phone || (business.detailsLoaded ? "Not found" : "Loading...");
       const reviewText = business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...");
@@ -1072,6 +1170,104 @@
       if (hoverCloseTimer) { clearTimeout(hoverCloseTimer); hoverCloseTimer = null; }
     }
 
+
+    function buildAlphabetScroller() {
+      const scroller = document.getElementById("alphabetScroller");
+      if (!scroller) return;
+      const letters = ["#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+      scroller.innerHTML = "";
+      for (const letter of letters) {
+        const button = document.createElement("button");
+        button.className = "alphabet-button";
+        button.type = "button";
+        button.textContent = letter;
+        button.setAttribute("aria-label", `Scroll to ${letter}`);
+        button.addEventListener("pointerdown", function(event) {
+          event.preventDefault();
+          setActiveAlphabetButton(button);
+          scrollToLetter(letter);
+        });
+        button.addEventListener("click", function(event) {
+          event.preventDefault();
+        });
+        scroller.appendChild(button);
+      }
+      updateAlphabetScroller();
+    }
+
+    function getBusinessSortLetter(business) {
+      const name = (business && business.name ? business.name.trim() : "").toUpperCase();
+      if (!name) return "#";
+      const first = name[0];
+      return first >= "A" && first <= "Z" ? first : "#";
+    }
+
+    function setActiveAlphabetButton(button) {
+      document.querySelectorAll(".alphabet-button.active").forEach(function(activeButton) {
+        activeButton.classList.remove("active");
+      });
+      button.classList.add("active");
+      setTimeout(function() {
+        button.classList.remove("active");
+      }, 450);
+    }
+
+    function scrollToLetter(letter) {
+      const cards = Array.from(document.querySelectorAll(".business-card"));
+      let target = cards.find(function(card) {
+        return card.dataset.letter === letter;
+      });
+
+      if (!target && letter === "#") {
+        target = cards[0];
+      }
+
+      if (!target) return;
+
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add("highlighted");
+      setTimeout(function() {
+        target.classList.remove("highlighted");
+      }, 900);
+    }
+
+    function updateAlphabetScroller() {
+      const scroller = document.getElementById("alphabetScroller");
+      const panel = document.getElementById("panel");
+      if (!scroller || !panel) return;
+
+      const cards = document.querySelectorAll(".business-card");
+      const shouldShow = cards.length > 8 && !panel.classList.contains("closed");
+      scroller.classList.toggle("visible", shouldShow);
+      if (!shouldShow) return;
+
+      const availableLetters = new Set(Array.from(cards).map(function(card) {
+        return card.dataset.letter || "#";
+      }));
+
+      scroller.querySelectorAll(".alphabet-button").forEach(function(button) {
+        const hasLetter = availableLetters.has(button.textContent);
+        button.style.opacity = hasLetter ? "1" : "0.28";
+        button.disabled = !hasLetter;
+      });
+
+      if (window.innerWidth <= 700) {
+        const panelHeight = panel.offsetHeight || Math.round(window.innerHeight * DEFAULT_PANEL_HEIGHT_RATIO);
+        const height = Math.max(160, Math.min(panelHeight - 58, 430));
+        scroller.style.height = height + "px";
+        scroller.style.bottom = "14px";
+        scroller.style.top = "auto";
+        scroller.style.right = "4px";
+        scroller.style.transform = "none";
+      } else {
+        scroller.style.height = Math.min(window.innerHeight * 0.72, 620) + "px";
+        scroller.style.top = "50%";
+        scroller.style.bottom = "auto";
+        scroller.style.right = "7px";
+        scroller.style.transform = "translateY(-50%)";
+      }
+    }
+
     function updateBackToTopButton() {
       const panel = document.getElementById("panel");
       const button = document.getElementById("backToTopButton");
@@ -1109,6 +1305,8 @@
       document.getElementById("stopScanButton").style.display = "none";
       document.getElementById("clearResultsButton").style.display = "none";
       document.getElementById("backToTopButton").style.display = "none";
+      const scroller = document.getElementById("alphabetScroller");
+      if (scroller) scroller.classList.remove("visible");
       updateStatus("Results cleared.");
     }
 
