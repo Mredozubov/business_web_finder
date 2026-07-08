@@ -78,8 +78,9 @@
     .scanner-title { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; line-height: 1.2; }
     .scanner-mode-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 13px; line-height: 1.1; border: 2px solid currentColor; background: white; }
     .scanner-mode-standard { color: #166534; }
+    .scanner-mode-pro { color: #0284c7; background: #f0f9ff; }
     .scanner-mode-smart { color: #db2777; }
-    .scanner-mode-deep { color: #5b21b6; background: #faf5ff; }
+    .scanner-mode-deep { color: #4c1d95; background: #f5f3ff; }
     input, select { width: 100%; padding: 9px; margin-top: 6px; }
     input[type="range"] { padding: 0; }
     button { width: 100%; padding: 11px; margin-top: 10px; border: 2px solid #2563eb; background: white; color: #1d4ed8; font-weight: bold; cursor: pointer; border-radius: 7px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
@@ -131,7 +132,7 @@
     /* v7 updates */
     #mapHint { transition: opacity 2s ease; }
     #mapHint.hint-fading { opacity: 0; pointer-events: none; }
-    .scanner-mode-deep { color: #5b21b6; background: #faf5ff; }
+    .scanner-mode-deep { color: #4c1d95; background: #f5f3ff; }
     .alphabet-scroller {
       display: none;
       position: fixed;
@@ -252,6 +253,7 @@
       <label>Scan Density</label>
       <select id="densitySelect" onchange="updateScannerModeTitle()">
         <option value="standard" selected>Standard Search</option>
+        <option value="pro">Pro Search</option>
         <option value="smart">Smart Search</option>
         <option value="deep">Deep Search</option>
       </select>
@@ -349,8 +351,8 @@
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        gestureHandling: "greedy",
-        disableDoubleClickZoom: true
+        disableDoubleClickZoom: true,
+        gestureHandling: "greedy"
       });
 
       placesService = new google.maps.places.PlacesService(map);
@@ -407,13 +409,21 @@
       } else if (density === "smart") {
         badge.textContent = "Smart Search";
         badge.className = "scanner-mode-badge scanner-mode-smart";
+      } else if (density === "pro") {
+        badge.textContent = "Pro Search";
+        badge.className = "scanner-mode-badge scanner-mode-pro";
       } else {
         badge.textContent = "Standard Search";
         badge.className = "scanner-mode-badge scanner-mode-standard";
       }
     }
 
-    function shouldLoadRatings() {
+    function shouldLoadContactData() {
+      const density = document.getElementById("densitySelect").value;
+      return density === "pro" || density === "smart" || density === "deep";
+    }
+
+    function shouldLoadAtmosphereData() {
       const density = document.getElementById("densitySelect").value;
       return density === "smart" || density === "deep";
     }
@@ -921,7 +931,8 @@
     function addBasicPlace(place) {
       if (!place.place_id || seenPlaceIds.has(place.place_id)) return;
       seenPlaceIds.add(place.place_id);
-      const includeRatings = shouldLoadRatings();
+      const includeContact = shouldLoadContactData();
+      const includeAtmosphere = shouldLoadAtmosphereData();
       const business = {
         placeId: place.place_id || "",
         name: place.name || "",
@@ -930,22 +941,25 @@
         website: "",
         googleMapsUrl: "",
         businessStatus: place.business_status || "",
-        rating: includeRatings && place.rating ? place.rating : "",
-        reviewCount: includeRatings && place.user_ratings_total ? place.user_ratings_total : "",
-        includeRatings: includeRatings,
+        rating: includeAtmosphere && place.rating ? place.rating : "",
+        reviewCount: includeAtmosphere && place.user_ratings_total ? place.user_ratings_total : "",
+        includeContact: includeContact,
+        includeAtmosphere: includeAtmosphere,
         types: place.types ? place.types.join(", ") : "",
         typesRaw: place.types || [],
         latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
         longitude: place.geometry && place.geometry.location ? place.geometry.location.lng() : "",
-        latestReviewDate: "Loading...",
+        latestReviewDate: includeAtmosphere ? "Loading..." : "Not loaded",
         latestReviewTimestamp: 0,
-        detailsLoaded: false,
+        detailsLoaded: !includeContact && !includeAtmosphere,
         marker: null
       };
       allBusinesses.push(business);
       addOrRefreshSingleBusiness(business);
       updateBusinessTypeFilter();
-      queuePlaceDetails(business);
+      if (business.includeContact || business.includeAtmosphere) {
+        queuePlaceDetails(business);
+      }
     }
 
     function queuePlaceDetails(business) { detailQueue.push(business); processDetailQueue(); }
@@ -953,7 +967,7 @@
       while (activeDetailRequests < DETAILS_CONCURRENCY && detailQueue.length > 0) {
         const business = detailQueue.shift();
         activeDetailRequests++;
-        getPlaceDetails(business.placeId, business.includeRatings).then(function(details) {
+        getPlaceDetails(business.placeId, business.includeContact, business.includeAtmosphere).then(function(details) {
           if (details) {
             Object.assign(business, details);
             business.detailsLoaded = true;
@@ -964,28 +978,34 @@
       }
     }
 
-    function getPlaceDetails(placeId, includeRatings) {
+    function getPlaceDetails(placeId, includeContact, includeAtmosphere) {
       return new Promise((resolve) => {
-        const detailFields = ["place_id", "name", "formatted_address", "geometry", "formatted_phone_number", "international_phone_number", "website", "url", "business_status", "types", "reviews"];
-        if (includeRatings) detailFields.push("rating", "user_ratings_total");
+        const detailFields = ["place_id", "name", "formatted_address", "geometry", "business_status", "types"];
+        if (includeContact) {
+          detailFields.push("formatted_phone_number", "international_phone_number", "website", "url");
+        }
+        if (includeAtmosphere) {
+          detailFields.push("rating", "user_ratings_total", "reviews");
+        }
         const request = {
           placeId,
           fields: detailFields
         };
         placesService.getDetails(request, function(place, status) {
           if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-            const reviewInfo = getLatestReviewInfo(place.reviews);
+            const reviewInfo = includeAtmosphere ? getLatestReviewInfo(place.reviews) : { dateText: "Not loaded", timestamp: 0 };
             resolve({
               placeId: place.place_id || "",
               name: place.name || "",
               address: place.formatted_address || "",
-              phone: place.formatted_phone_number || place.international_phone_number || "",
-              website: place.website || "",
-              googleMapsUrl: place.url || "",
+              phone: includeContact ? (place.formatted_phone_number || place.international_phone_number || "") : "",
+              website: includeContact ? (place.website || "") : "",
+              googleMapsUrl: includeContact ? (place.url || "") : "",
               businessStatus: place.business_status || "",
-              rating: includeRatings && place.rating ? place.rating : "",
-              reviewCount: includeRatings && place.user_ratings_total ? place.user_ratings_total : "",
-              includeRatings: includeRatings,
+              rating: includeAtmosphere && place.rating ? place.rating : "",
+              reviewCount: includeAtmosphere && place.user_ratings_total ? place.user_ratings_total : "",
+              includeContact: includeContact,
+              includeAtmosphere: includeAtmosphere,
               types: place.types ? place.types.join(", ") : "",
               typesRaw: place.types || [],
               latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
