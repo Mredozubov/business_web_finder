@@ -271,7 +271,8 @@
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        disableDoubleClickZoom: true
+        disableDoubleClickZoom: true,
+        gestureHandling: "greedy"
       });
 
       placesService = new google.maps.places.PlacesService(map);
