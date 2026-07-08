@@ -75,9 +75,11 @@
     #panelToggle { top: 16px; right: 404px; border-radius: 10px 0 0 10px; }
 
     h2 { margin-top: 0; }
-    .scanner-mode-badge { display: inline-block; margin-left: 6px; padding: 3px 8px; border-radius: 999px; font-size: 13px; vertical-align: middle; border: 2px solid currentColor; background: white; }
+    .scanner-title { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; line-height: 1.2; }
+    .scanner-mode-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 13px; line-height: 1.1; border: 2px solid currentColor; background: white; }
     .scanner-mode-standard { color: #166534; }
-    .scanner-mode-premium { color: #1d4ed8; }
+    .scanner-mode-smart { color: #db2777; }
+    .scanner-mode-deep { color: #1d4ed8; }
     input, select { width: 100%; padding: 9px; margin-top: 6px; }
     input[type="range"] { padding: 0; }
     button { width: 100%; padding: 11px; margin-top: 10px; border: 2px solid #2563eb; background: white; color: #1d4ed8; font-weight: bold; cursor: pointer; border-radius: 7px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
@@ -96,6 +98,7 @@
     #status { margin-top: 12px; padding: 10px; background: #f1f5f9; border-radius: 6px; font-size: 14px; }
     #progressOuter { display: none; margin-top: 10px; height: 18px; background: #e5e7eb; border-radius: 999px; overflow: hidden; border: 1px solid #d1d5db; }
     #progressInner { height: 100%; width: 0%; background: #2563eb; color: white; font-size: 12px; line-height: 18px; text-align: center; transition: width 0.2s ease; }
+    #stopScanButton { display: none; }
     #clearResultsButton { display: none; }
     #backToTopButton { display: none; position: sticky; top: 0; z-index: 20; background: white; color: #111827; border: 2px solid #111827; margin-bottom: 10px; }
 
@@ -143,7 +146,7 @@
         <button id="closeSettingsButton" onclick="closeMapSearchSettings()">×</button>
       </div>
       <div class="type-header">
-        <span>Filter by Business Type Found</span>
+        <span class="business-type-title">Filter by Business Type Found</span>
         <label class="select-all-mini">
           <input id="businessTypeSelectAll" type="checkbox" checked onchange="toggleAllBusinessTypesFromMaster()">
           select all / unselect
@@ -157,16 +160,21 @@
         </div>
       </div>
 
-      <label>Business Name</label>
+      <label>Search Any Address</label>
+      <input id="addressLookup" placeholder="Example: 126 W 73rd St, New York" autocomplete="off" oninput="handleAddressLookupInput()" />
+      <div id="addressPredictionBox"></div>
+
+      <label>Filter by business name</label>
       <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
 
-      <label>Address</label>
+      <label>Filter by address</label>
       <input id="addressSearch" placeholder="Example: Brooklyn" oninput="renderResults()" />
 
       <label>Scan Density</label>
       <select id="densitySelect" onchange="updateScannerModeTitle()">
-        <option value="quick" selected>Normal Scan</option>
-        <option value="deep">Deep Scan</option>
+        <option value="standard" selected>Standard Search</option>
+        <option value="smart">Smart Search</option>
+        <option value="deep">Deep Search</option>
       </select>
 
       <label>Sort Results</label>
@@ -185,7 +193,7 @@
     </div>
 
     <div id="panel">
-      <h2>Business Area Scanner : <span id="scannerModeBadge" class="scanner-mode-badge scanner-mode-standard">Standard</span></h2>
+      <h2 class="scanner-title">Business Area Scanner : <span id="scannerModeBadge" class="scanner-mode-badge scanner-mode-standard">Standard Search</span></h2>
       <div class="panel-control-box">
         <label>Radius: <span id="radiusLabel">1000 feet</span></label>
         <input id="radiusSlider" type="range" min="50" max="5000" step="50" value="1000" />
@@ -196,6 +204,7 @@
       </div>
       <div id="status">Ready, double click to create a scan circle.</div>
       <div id="progressOuter"><div id="progressInner">0%</div></div>
+      <button id="stopScanButton" onclick="stopScanning()" class="secondary">⏹ Stop Scanning</button>
       <button id="clearResultsButton" onclick="clearResults()" class="danger">🧹 Clear Results</button>
       <h3>Total Results: <span id="totalResultCount">0</span></h3>
       <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
@@ -212,6 +221,7 @@
     let centerMarker = null;
     let resizeMarker = null;
     let placesService;
+    let autocompleteService;
     let allBusinesses = [];
     let seenPlaceIds = new Set();
     let markers = [];
@@ -233,6 +243,10 @@
     const DETAILS_CONCURRENCY = 4;
     let activeDetailRequests = 0;
     let detailQueue = [];
+    let isScanning = false;
+    let stopScanRequested = false;
+    let businessTypeMasterSelected = true;
+    let latestAddressPredictions = [];
 
     const DEEP_SCAN_KEYWORDS = [
       "store", "business", "shop", "restaurant", "food", "cafe", "bar", "bakery",
@@ -250,13 +264,11 @@
         mapTypeControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        disableDoubleClickZoom: true,
-        styles: [
-          { featureType: "all", elementType: "labels", stylers: [{ visibility: "off" }] }
-        ]
+        disableDoubleClickZoom: true
       });
 
       placesService = new google.maps.places.PlacesService(map);
+      autocompleteService = new google.maps.places.AutocompleteService();
 
       map.addListener("click", function(event) {
         const now = Date.now();
@@ -300,13 +312,22 @@
       const density = document.getElementById("densitySelect").value;
       const badge = document.getElementById("scannerModeBadge");
       if (!badge) return;
+
       if (density === "deep") {
-        badge.textContent = "Premium";
-        badge.className = "scanner-mode-badge scanner-mode-premium";
+        badge.textContent = "Deep Search";
+        badge.className = "scanner-mode-badge scanner-mode-deep";
+      } else if (density === "smart") {
+        badge.textContent = "Smart Search";
+        badge.className = "scanner-mode-badge scanner-mode-smart";
       } else {
-        badge.textContent = "Standard";
+        badge.textContent = "Standard Search";
         badge.className = "scanner-mode-badge scanner-mode-standard";
       }
+    }
+
+    function shouldLoadRatings() {
+      const density = document.getElementById("densitySelect").value;
+      return density === "smart" || density === "deep";
     }
 
     function closeHint() { document.getElementById("mapHint").style.display = "none"; }
@@ -481,49 +502,78 @@
     function updateBusinessTypeFilter() {
       const box = document.getElementById("businessTypeBox");
       const master = document.getElementById("businessTypeSelectAll");
-      const previousChecked = new Set(getSelectedBusinessTypes());
-      const hadPrevious = previousChecked.size > 0;
+      const previousStates = new Map();
+
+      document.querySelectorAll("#businessTypeBox input[type='checkbox']").forEach(function(checkbox) {
+        previousStates.set(checkbox.value, checkbox.checked);
+      });
+
       box.innerHTML = "";
+
       if (allBusinesses.length === 0) {
-        box.innerHTML = `<div id="businessTypeEmpty">No businesses scanned<br>Create and scan an area by double clicking the map</div>`;
-        master.checked = true;
+        box.innerHTML = `
+          <div id="businessTypeEmpty">
+            No businesses scanned<br>
+            Create and scan an area by double clicking the map
+          </div>
+        `;
+        master.checked = businessTypeMasterSelected;
         return;
       }
+
       const typeSet = new Set();
+
       for (const business of allBusinesses) {
         if (!business.typesRaw) continue;
-        for (const type of business.typesRaw) if (type) typeSet.add(type);
+
+        for (const type of business.typesRaw) {
+          if (type) typeSet.add(type);
+        }
       }
-      const types = Array.from(typeSet).sort(function(a, b) { return formatBusinessType(a).localeCompare(formatBusinessType(b)); });
+
+      const types = Array.from(typeSet).sort(function(a, b) {
+        return formatBusinessType(a).localeCompare(formatBusinessType(b));
+      });
+
       if (types.length === 0) {
         box.innerHTML = `<div id="businessTypeEmpty">No business types found from scanned results.</div>`;
         return;
       }
+
       for (const type of types) {
         const label = document.createElement("label");
         label.className = "type-option";
+
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.value = type;
-        checkbox.checked = hadPrevious ? previousChecked.has(type) : true;
-        checkbox.addEventListener("change", function() { syncMasterTypeCheckbox(); renderResults(); });
+        checkbox.checked = previousStates.has(type) ? previousStates.get(type) : businessTypeMasterSelected;
+        checkbox.addEventListener("change", function() {
+          syncMasterTypeCheckboxFromItems();
+          renderResults();
+        });
+
         label.appendChild(checkbox);
         label.appendChild(document.createTextNode(formatBusinessType(type)));
         box.appendChild(label);
       }
-      syncMasterTypeCheckbox();
+
+      master.checked = businessTypeMasterSelected;
     }
 
-    function syncMasterTypeCheckbox() {
-      const checkboxes = document.querySelectorAll("#businessTypeBox input[type='checkbox']");
+    function syncMasterTypeCheckboxFromItems() {
+      const checkboxes = Array.from(document.querySelectorAll("#businessTypeBox input[type='checkbox']"));
       const master = document.getElementById("businessTypeSelectAll");
-      master.checked = checkboxes.length === 0 || Array.from(checkboxes).every(function(checkbox) { return checkbox.checked; });
+      if (checkboxes.length === 0) return;
+      businessTypeMasterSelected = checkboxes.every(function(checkbox) { return checkbox.checked; });
+      master.checked = businessTypeMasterSelected;
     }
 
     function toggleAllBusinessTypesFromMaster() {
       const master = document.getElementById("businessTypeSelectAll");
+      businessTypeMasterSelected = master.checked;
       const checkboxes = document.querySelectorAll("#businessTypeBox input[type='checkbox']");
-      checkboxes.forEach(function(checkbox) { checkbox.checked = master.checked; });
+      checkboxes.forEach(function(checkbox) { checkbox.checked = businessTypeMasterSelected; });
       renderResults();
     }
 
@@ -663,7 +713,13 @@
 
     async function scanCircle() {
       if (!circle) { alert("Double-click the map to place a circle first."); return; }
+      if (isScanning) return;
+
       clearResults();
+      isScanning = true;
+      stopScanRequested = false;
+      document.getElementById("stopScanButton").style.display = "block";
+
       const scannedCenter = circle.getCenter();
       const radiusMeters = circle.getRadius();
       const searchPoints = generateSearchPoints(scannedCenter, radiusMeters);
@@ -672,9 +728,12 @@
       const totalDeepSteps = density === "deep" ? searchPoints.length * DEEP_SCAN_KEYWORDS.length : 0;
       const totalSteps = totalNearbySteps + totalDeepSteps;
       let completedSteps = 0;
+
       updateProgress(0);
       updateStatus(`Scanning 0% - 0 of ${totalSteps} searches...`);
+
       for (let i = 0; i < searchPoints.length; i++) {
+        if (stopScanRequested) break;
         await nearbySearch(searchPoints[i].location, searchPoints[i].radius);
         completedSteps++;
         const percent = Math.round((completedSteps / totalSteps) * 100);
@@ -682,9 +741,12 @@
         updateProgress(percent);
         await wait(160);
       }
-      if (density === "deep") {
+
+      if (!stopScanRequested && density === "deep") {
         for (let i = 0; i < searchPoints.length; i++) {
+          if (stopScanRequested) break;
           for (let k = 0; k < DEEP_SCAN_KEYWORDS.length; k++) {
+            if (stopScanRequested) break;
             await textSearchNearby(DEEP_SCAN_KEYWORDS[k], searchPoints[i].location, searchPoints[i].radius);
             completedSteps++;
             const percent = Math.round((completedSteps / totalSteps) * 100);
@@ -694,11 +756,23 @@
           }
         }
       }
+
       updateBusinessTypeFilter();
-      updateStatus(`Finished. Found ${allBusinesses.length} unique businesses. Details may continue loading briefly.`);
-      updateProgress(100);
+      if (stopScanRequested) {
+        updateStatus(`Stopped. Found ${allBusinesses.length} unique businesses. Details may continue loading briefly.`);
+      } else {
+        updateStatus(`Finished. Found ${allBusinesses.length} unique businesses. Details may continue loading briefly.`);
+        updateProgress(100);
+      }
+      document.getElementById("stopScanButton").style.display = "none";
       document.getElementById("clearResultsButton").style.display = allBusinesses.length > 0 ? "block" : "none";
+      isScanning = false;
       renderResults();
+    }
+
+    function stopScanning() {
+      stopScanRequested = true;
+      updateStatus("Stopping scan after the current request finishes...");
     }
 
     function nearbySearch(location, radius) {
@@ -734,6 +808,7 @@
     function addBasicPlace(place) {
       if (!place.place_id || seenPlaceIds.has(place.place_id)) return;
       seenPlaceIds.add(place.place_id);
+      const includeRatings = shouldLoadRatings();
       const business = {
         placeId: place.place_id || "",
         name: place.name || "",
@@ -742,6 +817,9 @@
         website: "",
         googleMapsUrl: "",
         businessStatus: place.business_status || "",
+        rating: includeRatings && place.rating ? place.rating : "",
+        reviewCount: includeRatings && place.user_ratings_total ? place.user_ratings_total : "",
+        includeRatings: includeRatings,
         types: place.types ? place.types.join(", ") : "",
         typesRaw: place.types || [],
         latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
@@ -762,7 +840,7 @@
       while (activeDetailRequests < DETAILS_CONCURRENCY && detailQueue.length > 0) {
         const business = detailQueue.shift();
         activeDetailRequests++;
-        getPlaceDetails(business.placeId).then(function(details) {
+        getPlaceDetails(business.placeId, business.includeRatings).then(function(details) {
           if (details) {
             Object.assign(business, details);
             business.detailsLoaded = true;
@@ -773,11 +851,13 @@
       }
     }
 
-    function getPlaceDetails(placeId) {
+    function getPlaceDetails(placeId, includeRatings) {
       return new Promise((resolve) => {
+        const detailFields = ["place_id", "name", "formatted_address", "geometry", "formatted_phone_number", "international_phone_number", "website", "url", "business_status", "types", "reviews"];
+        if (includeRatings) detailFields.push("rating", "user_ratings_total");
         const request = {
           placeId,
-          fields: ["place_id", "name", "formatted_address", "geometry", "formatted_phone_number", "international_phone_number", "website", "url", "business_status", "types", "reviews"]
+          fields: detailFields
         };
         placesService.getDetails(request, function(place, status) {
           if (status === google.maps.places.PlacesServiceStatus.OK && place) {
@@ -790,6 +870,9 @@
               website: place.website || "",
               googleMapsUrl: place.url || "",
               businessStatus: place.business_status || "",
+              rating: includeRatings && place.rating ? place.rating : "",
+              reviewCount: includeRatings && place.user_ratings_total ? place.user_ratings_total : "",
+              includeRatings: includeRatings,
               types: place.types ? place.types.join(", ") : "",
               typesRaw: place.types || [],
               latitude: place.geometry && place.geometry.location ? place.geometry.location.lat() : "",
@@ -876,11 +959,13 @@
       const websiteText = business.website ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">No website found</span>` : `<span class="loading-text">Loading website...</span>`;
       const phoneText = business.phone || (business.detailsLoaded ? "Not found" : "Loading...");
       const reviewText = business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...");
+      const ratingLine = business.includeRatings ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
       card.innerHTML = `
         <strong>${escapeHtml(business.name)}</strong><br>
         ${escapeHtml(business.address)}<br><br>
         Phone: ${escapeHtml(phoneText)}<br>
         Website: ${websiteText}<br>
+        ${ratingLine}
         Last Review Date: ${escapeHtml(reviewText)}<br>
         Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
         Types: ${escapeHtml(business.types || "Not found")}<br>
@@ -933,12 +1018,13 @@
 
     function buildInfoWindowContent(business) {
       const websiteSection = business.website ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">Website: not found</span>` : `<span class="loading-text">Website: loading...</span>`;
+      const ratingLine = business.includeRatings ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
       return `
         <div class="info-window-content">
           <strong>${escapeHtml(business.name)}</strong><br>
           ${escapeHtml(business.address)}<br>
           Phone: ${escapeHtml(business.phone || (business.detailsLoaded ? "Not found" : "Loading..."))}<br>
-          ${websiteSection}<br>
+          ${websiteSection}${ratingLine}<br>
           Last review: ${escapeHtml(business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading..."))}<br>
           Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
           Types: ${escapeHtml(business.types || "Not found")}
@@ -978,8 +1064,8 @@
 
     function exportCSV() {
       if (allBusinesses.length === 0) { alert("No results to export."); return; }
-      const headers = ["Business Name", "Address", "Phone", "Website", "Google Maps URL", "Last Review Date", "Business Status", "Types", "Latitude", "Longitude"];
-      const rows = allBusinesses.map(business => [business.name, business.address, business.phone, business.website, business.googleMapsUrl, business.latestReviewDate, business.businessStatus, business.types, business.latitude, business.longitude]);
+      const headers = ["Business Name", "Address", "Phone", "Website", "Google Maps URL", "Rating", "Review Count", "Last Review Date", "Business Status", "Types", "Latitude", "Longitude"];
+      const rows = allBusinesses.map(business => [business.name, business.address, business.phone, business.website, business.googleMapsUrl, business.rating, business.reviewCount, business.latestReviewDate, business.businessStatus, business.types, business.latitude, business.longitude]);
       let csvContent = headers.map(csvEscape).join(",") + "\n";
       for (const row of rows) csvContent += row.map(csvEscape).join(",") + "\n";
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -1003,9 +1089,78 @@
       document.getElementById("results").innerHTML = "";
       document.getElementById("totalResultCount").textContent = "0";
       document.getElementById("filteredResultCount").textContent = "0";
+      document.getElementById("stopScanButton").style.display = "none";
       document.getElementById("clearResultsButton").style.display = "none";
       document.getElementById("backToTopButton").style.display = "none";
       updateStatus("Results cleared.");
+    }
+
+    function handleAddressLookupInput() {
+      const input = document.getElementById("addressLookup");
+      const box = document.getElementById("addressPredictionBox");
+      const value = input.value.trim();
+
+      if (!autocompleteService || value.length < 3) {
+        box.style.display = "none";
+        box.innerHTML = "";
+        return;
+      }
+
+      autocompleteService.getPlacePredictions(
+        {
+          input: value,
+          componentRestrictions: { country: "us" }
+        },
+        function(predictions, status) {
+          box.innerHTML = "";
+
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions || predictions.length === 0) {
+            box.style.display = "none";
+            return;
+          }
+
+          latestAddressPredictions = predictions;
+
+          predictions.slice(0, 6).forEach(function(prediction) {
+            const item = document.createElement("div");
+            item.className = "address-prediction-item";
+            item.textContent = prediction.description;
+            item.addEventListener("click", function() {
+              selectAddressPrediction(prediction.place_id, prediction.description);
+            });
+            box.appendChild(item);
+          });
+
+          box.style.display = "block";
+        }
+      );
+    }
+
+    function selectAddressPrediction(placeId, description) {
+      const input = document.getElementById("addressLookup");
+      const box = document.getElementById("addressPredictionBox");
+      input.value = description;
+      box.style.display = "none";
+      box.innerHTML = "";
+
+      placesService.getDetails(
+        {
+          placeId: placeId,
+          fields: ["name", "formatted_address", "geometry"]
+        },
+        function(place, status) {
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !place || !place.geometry || !place.geometry.location) {
+            alert("Could not find that address on the map.");
+            return;
+          }
+
+          const location = place.geometry.location;
+          placeCircle(location);
+          map.panTo(location);
+          map.setZoom(Math.max(map.getZoom(), 18));
+          updateStatus("Address selected. Click Scan to search this building or area.");
+        }
+      );
     }
 
     function csvEscape(value) { const text = String(value || ""); return `"${text.replace(/"/g, '""')}"`; }
