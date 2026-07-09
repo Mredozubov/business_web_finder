@@ -277,7 +277,7 @@
       <h2 class="scanner-title">Business Area Scanner : <span id="scannerModeBadge" class="scanner-mode-badge scanner-mode-standard">Standard Search</span></h2>
       <div class="panel-control-box">
         <label>Radius: <span id="radiusLabel">500 feet</span></label>
-        <input id="radiusSlider" type="range" min="50" max="5000" step="50" value="500" />
+        <input id="radiusSlider" type="range" min="50" max="1000" step="50" value="500" />
         <div class="panel-button-row">
           <button onclick="scanCircle()">🔍 Scan</button>
           <button id="removeCircleButton" onclick="removeCircle()" class="disabled-grey">🗑️ Remove</button>
@@ -733,7 +733,7 @@
       });
       resizeMarker.addListener("drag", function(event) {
         const newRadiusMeters = distanceMeters(circle.getCenter().lat(), circle.getCenter().lng(), event.latLng.lat(), event.latLng.lng());
-        savedCircleRadiusFeet = Math.max(50, Math.min(5000, Math.round(metersToFeet(newRadiusMeters))));
+        savedCircleRadiusFeet = Math.max(50, Math.min(1000, Math.round(metersToFeet(newRadiusMeters))));
         circle.setRadius(feetToMeters(savedCircleRadiusFeet));
         document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
         updateRadiusLabel(savedCircleRadiusFeet);
@@ -1095,7 +1095,7 @@
       const websiteText = business.website ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">No website found</span>` : `<span class="loading-text">Loading website...</span>`;
       const phoneText = business.phone || (business.detailsLoaded ? "Not found" : "Loading...");
       const reviewText = business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...");
-      const ratingLine = business.includeRatings ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
+      const ratingLine = business.includeAtmosphere ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
       card.innerHTML = `
         <strong>${escapeHtml(business.name)}</strong><br>
         ${escapeHtml(business.address)}<br><br>
@@ -1154,7 +1154,7 @@
 
     function buildInfoWindowContent(business) {
       const websiteSection = business.website ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">Website: not found</span>` : `<span class="loading-text">Website: loading...</span>`;
-      const ratingLine = business.includeRatings ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
+      const ratingLine = business.includeAtmosphere ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
       return `
         <div class="info-window-content">
           <strong>${escapeHtml(business.name)}</strong><br>
@@ -1430,6 +1430,6 @@
     function escapeHtml(value) { return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
     function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
   </script>
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAHhKPBGV9k1Wl4E5H9Mcdrxol2JkF-9-A&libraries=places&callback=initMap"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAHhKPBGV9k1Wl4E5H9Mcdrxol2JkF-9-A&libraries=places&callback=initMap&loading=async"></script>
 </body>
 </html>
