@@ -254,15 +254,15 @@
       </div>
       <div id="businessInfoBox">
         <label class="business-info-option">
-          <input id="filterHasWebsite" type="checkbox" checked onchange="renderResults()">
+          <input id="filterHasWebsite" type="checkbox" onchange="renderResults()">
           Has website
         </label>
         <label class="business-info-option">
-          <input id="filterNoWebsite" type="checkbox" checked onchange="renderResults()">
+          <input id="filterNoWebsite" type="checkbox" onchange="renderResults()">
           No website
         </label>
         <label class="business-info-option">
-          <input id="filterLastRating2026" type="checkbox" checked onchange="renderResults()">
+          <input id="filterLastRating2026" type="checkbox" onchange="renderResults()">
           Last rating in 2026
         </label>
       </div>
@@ -317,10 +317,10 @@
       <h3>Total Results: <span id="totalResultCount">0</span></h3>
       <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
-      <div id="alphabetScroller" class="alphabet-scroller" aria-label="Business alphabet scroller"></div>
       <div id="results"></div>
     </div>
 
+    <div id="alphabetScroller" class="alphabet-scroller" aria-label="Business alphabet scroller"></div>
     <div id="panelDragEdge"></div>
   </div>
 
@@ -754,11 +754,12 @@
     }
 
     function businessMatchesInfoFilters(business, filters) {
-      const matchesWebsite = Boolean(business.website) && filters.hasWebsite;
-      const matchesNoWebsite = business.detailsLoaded && !business.website && filters.noWebsite;
-      const detailsStillLoading = !business.detailsLoaded && (filters.hasWebsite || filters.noWebsite);
-      const matches2026 = hasLatestReviewIn2026(business) && filters.lastRating2026;
-      return matchesWebsite || matchesNoWebsite || detailsStillLoading || matches2026;
+      // Every checked box is an optional requirement.
+      // An unchecked box does not restrict the results.
+      if (filters.hasWebsite && !business.website) return false;
+      if (filters.noWebsite && (!business.detailsLoaded || Boolean(business.website))) return false;
+      if (filters.lastRating2026 && !hasLatestReviewIn2026(business)) return false;
+      return true;
     }
 
     function setBusinessListingVisibility(placeId, isVisible) {
