@@ -805,18 +805,41 @@
     }
 
     function businessMatchesInfoFilters(business, filters) {
-      const anyFilterOn = filters.hasWebsite || filters.noWebsite || filters.hasRating2026;
-      if (!anyFilterOn) return true;
+      /*
+        Website buttons are one filter group:
+        - Neither selected: do not filter by website.
+        - Has website only: show businesses with a website.
+        - No website only: show businesses without a website.
+        - Both selected: do not filter by website, so every business passes this group.
 
-      if (filters.hasWebsite && business.includeContact && Boolean(business.website)) return true;
-      if (filters.noWebsite && business.includeContact && business.detailsLoaded && !business.website) return true;
-      if (filters.hasRating2026 && business.includeAtmosphere && hasRatingIn2026(business)) return true;
+        Every other enabled info filter is applied in addition to the website group.
+        For example, Has website + Has rating in 2026 means the business must satisfy both.
+      */
+      let websiteMatch = true;
+      const onlyHasWebsite = filters.hasWebsite && !filters.noWebsite;
+      const onlyNoWebsite = filters.noWebsite && !filters.hasWebsite;
 
-      // Keep businesses visible while requested details are still loading so they can
-      // automatically enter the correct filtered group once Google returns the data.
-      const waitingForWebsiteData = !business.detailsLoaded && (filters.hasWebsite || filters.noWebsite);
+      if (onlyHasWebsite) {
+        websiteMatch = business.includeContact && Boolean(business.website);
+      } else if (onlyNoWebsite) {
+        websiteMatch = business.includeContact && business.detailsLoaded && !business.website;
+      }
+
+      let ratingMatch = true;
+      if (filters.hasRating2026) {
+        ratingMatch = business.includeAtmosphere && hasRatingIn2026(business);
+      }
+
+      if (websiteMatch && ratingMatch) return true;
+
+      // Keep a result temporarily visible only while information required by an
+      // enabled filter is still loading. It will be rechecked when details arrive.
+      const waitingForWebsiteData = !business.detailsLoaded && (onlyHasWebsite || onlyNoWebsite) && business.includeContact;
       const waitingForRatingData = !business.detailsLoaded && filters.hasRating2026 && business.includeAtmosphere;
-      return waitingForWebsiteData || waitingForRatingData;
+
+      const websiteCanStillMatch = websiteMatch || waitingForWebsiteData;
+      const ratingCanStillMatch = ratingMatch || waitingForRatingData;
+      return websiteCanStillMatch && ratingCanStillMatch;
     }
 
     function setBusinessListingVisibility(placeId, isVisible) {
