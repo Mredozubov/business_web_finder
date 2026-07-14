@@ -105,6 +105,7 @@
     #stopScanButton { display: none; }
     #clearResultsButton { display: none; }
     #backToTopButton { display: none; position: sticky; top: 0; z-index: 20; background: white; color: #111827; border: 2px solid #111827; margin-bottom: 10px; }
+    .filter-warning { display: none; margin: 8px 0 12px; padding: 10px; border: 1px solid #f59e0b; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 13px; font-weight: bold; line-height: 1.35; text-align: center; }
 
     .business-card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #fafafa; font-size: 14px; cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
     .business-card.loading-details { border-style: dashed; }
@@ -235,7 +236,7 @@
         <button id="closeSettingsButton" onclick="closeMapSearchSettings()">×</button>
       </div>
       <label>Scan Density</label>
-      <select id="densitySelect" onchange="updateScannerModeTitle()">
+      <select id="densitySelect" onchange="updateScannerModeTitle(); renderResults();">
         <option value="standard" selected>Standard Search</option>
         <option value="pro">Pro Search</option>
         <option value="smart">Smart Search</option>
@@ -320,6 +321,11 @@
       <button id="clearResultsButton" onclick="clearResults()" class="danger">🧹 Clear Results</button>
       <h3>Total Results: <span id="totalResultCount">0</span></h3>
       <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
+      <div id="filterWarning" class="filter-warning">
+        Lack of results may be due to too many filters applied<br>
+        or<br>
+        Scan Density subscription too weak
+      </div>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
       <div id="results"></div>
     </div>
@@ -1164,6 +1170,13 @@
       });
       totalCountSpan.textContent = allBusinesses.length;
       filteredCountSpan.textContent = businesses.length;
+
+      const filterWarning = document.getElementById("filterWarning");
+      const density = document.getElementById("densitySelect").value;
+      const hasActiveInfoFilter = infoFilters.hasWebsite || infoFilters.noWebsite || infoFilters.hasRating2026;
+      const shouldShowFilterWarning = density === "standard" && hasActiveInfoFilter && businesses.length === 0 && allBusinesses.length > 0;
+      if (filterWarning) filterWarning.style.display = shouldShowFilterWarning ? "block" : "none";
+
       resultsDiv.innerHTML = "";
       for (const business of businesses) {
         if (!business.hiddenFromListing) createMarker(business);
@@ -1469,6 +1482,8 @@
       document.getElementById("results").innerHTML = "";
       document.getElementById("totalResultCount").textContent = "0";
       document.getElementById("filteredResultCount").textContent = "0";
+      const filterWarning = document.getElementById("filterWarning");
+      if (filterWarning) filterWarning.style.display = "none";
       document.getElementById("stopScanButton").style.display = "none";
       document.getElementById("clearResultsButton").style.display = "none";
       document.getElementById("backToTopButton").style.display = "none";
