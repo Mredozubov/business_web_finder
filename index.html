@@ -747,6 +747,17 @@
       };
     }
 
+    function getScanDensityUpgradeText(business) {
+      const density = business.scanDensity || "standard";
+      const labels = {
+        standard: "Standard search - Go upgrade",
+        pro: "Pro search - Go upgrade",
+        smart: "Smart search - Go upgrade",
+        deep: "Deep search - Go upgrade"
+      };
+      return labels[density] || "Current search - Go upgrade";
+    }
+
     function hasRatingIn2026(business) {
       const timestamp = Number(business.latestReviewTimestamp || 0);
       if (!timestamp) return false;
@@ -757,9 +768,9 @@
       const anyFilterOn = filters.hasWebsite || filters.noWebsite || filters.hasRating2026;
       if (!anyFilterOn) return true;
 
-      if (filters.hasWebsite && Boolean(business.website)) return true;
-      if (filters.noWebsite && business.detailsLoaded && !business.website) return true;
-      if (filters.hasRating2026 && hasRatingIn2026(business)) return true;
+      if (filters.hasWebsite && business.includeContact && Boolean(business.website)) return true;
+      if (filters.noWebsite && business.includeContact && business.detailsLoaded && !business.website) return true;
+      if (filters.hasRating2026 && business.includeAtmosphere && hasRatingIn2026(business)) return true;
 
       // Keep businesses visible while requested details are still loading so they can
       // automatically enter the correct filtered group once Google returns the data.
@@ -998,6 +1009,7 @@
       const includeAtmosphere = shouldLoadAtmosphereData();
       const business = {
         placeId: place.place_id || "",
+        scanDensity: document.getElementById("densitySelect").value,
         name: place.name || "",
         address: place.vicinity || place.formatted_address || "",
         phone: "",
@@ -1160,10 +1172,19 @@
       if (business.hiddenFromListing) card.classList.add("hidden-business");
       card.id = `business-card-${business.placeId}`;
       card.dataset.letter = getBusinessSortLetter(business);
-      const websiteText = business.website ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">No website found</span>` : `<span class="loading-text">Loading website...</span>`;
-      const phoneText = business.phone || (business.detailsLoaded ? "Not found" : "Loading...");
-      const reviewText = business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...");
-      const ratingLine = business.includeAtmosphere ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
+      const upgradeText = getScanDensityUpgradeText(business);
+      const websiteText = !business.includeContact
+        ? `<span class="loading-text">${escapeHtml(upgradeText)}</span>`
+        : business.website
+          ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
+          : business.detailsLoaded
+            ? `<span class="missing">No website found</span>`
+            : `<span class="loading-text">Loading website...</span>`;
+      const phoneText = !business.includeContact ? upgradeText : (business.phone || (business.detailsLoaded ? "Not found" : "Loading..."));
+      const reviewText = !business.includeAtmosphere ? upgradeText : (business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading..."));
+      const ratingLine = !business.includeAtmosphere
+        ? `Rating: <span class="loading-text">${escapeHtml(upgradeText)}</span><br>`
+        : `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>`;
       card.innerHTML = `
         <div class="business-visibility-row">
           <label class="business-visibility-toggle">
@@ -1238,15 +1259,24 @@
     }
 
     function buildInfoWindowContent(business) {
-      const websiteSection = business.website ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">Website: not found</span>` : `<span class="loading-text">Website: loading...</span>`;
-      const ratingLine = business.includeAtmosphere ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
+      const upgradeText = getScanDensityUpgradeText(business);
+      const websiteSection = !business.includeContact
+        ? `<span class="loading-text">Website: ${escapeHtml(upgradeText)}</span>`
+        : business.website
+          ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>`
+          : business.detailsLoaded
+            ? `<span class="missing">Website: not found</span>`
+            : `<span class="loading-text">Website: loading...</span>`;
+      const ratingLine = !business.includeAtmosphere
+        ? `<br>Rating: <span class="loading-text">${escapeHtml(upgradeText)}</span>`
+        : `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}`;
       return `
         <div class="info-window-content">
           <strong>${escapeHtml(business.name)}</strong><br>
           ${escapeHtml(business.address)}<br>
-          Phone: ${escapeHtml(business.phone || (business.detailsLoaded ? "Not found" : "Loading..."))}<br>
+          Phone: ${escapeHtml(!business.includeContact ? upgradeText : (business.phone || (business.detailsLoaded ? "Not found" : "Loading...")))}<br>
           ${websiteSection}${ratingLine}<br>
-          Last review: ${escapeHtml(business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading..."))}<br>
+          Last review: ${escapeHtml(!business.includeAtmosphere ? upgradeText : (business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...")))}<br>
           Status: ${escapeHtml(business.businessStatus || "Not found")}<br>
           Types: ${escapeHtml(business.types || "Not found")}
           ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open Maps</a>` : ""}
