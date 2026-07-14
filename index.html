@@ -53,30 +53,10 @@
     .panel-button-row { display: flex; gap: 8px; }
     .panel-button-row button { flex: 1; }
 
-    #businessTypeBox { max-height: 120px; overflow-y: auto; margin-top: 6px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: white; }
-
-    #businessInfoBox {
-      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding: 8px;
-      border: 1px solid #d1d5db; border-radius: 8px; background: white;
-    }
-    .info-filter-option {
-      display: inline-flex !important; align-items: center; gap: 5px; margin: 0 !important;
-      padding: 5px 7px; border: 1px solid #cbd5e1; border-radius: 999px;
-      background: #f8fafc; font-size: 12px !important; font-weight: 600 !important; cursor: pointer;
-    }
-    .info-filter-option input { width: auto !important; margin: 0 !important; }
-
-    .business-visibility-row {
-      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-      margin-bottom: 6px; font-size: 12px; color: #475569;
-    }
-    .business-visibility-row input { width: auto; margin: 0; }
-    .business-card.user-hidden { opacity: 0.62; background: #f1f5f9; border-style: dashed; }
-    .business-card.user-hidden .business-card-details { display: none; }
-    .business-card.user-hidden::after {
-      content: "Hidden from map and active results"; display: block; margin-top: 4px;
-      color: #64748b; font-size: 12px; font-style: italic;
-    }
+    #businessTypeBox, #businessInfoBox { max-height: 120px; overflow-y: auto; margin-top: 6px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: white; }
+    #businessInfoBox { max-height: none; }
+    .business-info-option { display: flex !important; align-items: center; gap: 7px; padding: 4px 0; font-size: 12px !important; font-weight: normal !important; margin-top: 0 !important; }
+    .business-info-option input { width: auto !important; margin: 0 !important; }
     #businessTypeEmpty { color: #6b7280; font-size: 13px; line-height: 1.35; padding: 6px 2px; }
     .type-option { display: flex !important; align-items: center; gap: 7px; padding: 3px 0; font-size: 12px !important; font-weight: normal !important; margin-top: 0 !important; }
     .type-option input { width: auto !important; margin: 0 !important; }
@@ -131,6 +111,12 @@
     .business-card:hover { background: #eef2ff; border-color: #2563eb; }
     .business-card.highlighted { background: #fef3c7; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.35); }
     .business-card strong { font-size: 15px; }
+    .business-card.hidden-business { opacity: 0.62; background: #f3f4f6; border-style: dashed; }
+    .business-card.hidden-business .business-details { display: none; }
+    .business-visibility-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+    .business-visibility-toggle { display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .business-visibility-toggle input { width: auto; margin: 0; }
+    .hidden-business-note { color: #6b7280; font-size: 12px; font-style: italic; }
     .missing { color: #dc2626; font-weight: bold; }
     .has-website { color: #16a34a; font-weight: bold; }
     .loading-text { color: #6b7280; font-style: italic; }
@@ -159,7 +145,7 @@
     .alphabet-scroller {
       display: none;
       position: fixed;
-      z-index: 40;
+      z-index: 21;
       right: 7px;
       top: 50%;
       transform: translateY(-50%);
@@ -263,19 +249,21 @@
         </div>
       </div>
 
-      <div class="type-header"><span>Filter by Info</span></div>
+      <div class="type-header">
+        <span class="business-type-title">Filter by Info</span>
+      </div>
       <div id="businessInfoBox">
-        <label class="info-filter-option">
+        <label class="business-info-option">
           <input id="filterHasWebsite" type="checkbox" checked onchange="renderResults()">
-          Website
+          Has website
         </label>
-        <label class="info-filter-option">
+        <label class="business-info-option">
           <input id="filterNoWebsite" type="checkbox" checked onchange="renderResults()">
           No website
         </label>
-        <label class="info-filter-option">
-          <input id="filterReview2026" type="checkbox" checked onchange="renderResults()">
-          Last rating 2026
+        <label class="business-info-option">
+          <input id="filterLastRating2026" type="checkbox" checked onchange="renderResults()">
+          Last rating in 2026
         </label>
       </div>
 
@@ -316,7 +304,7 @@
       <h2 class="scanner-title">Business Area Scanner : <span id="scannerModeBadge" class="scanner-mode-badge scanner-mode-standard">Standard Search</span></h2>
       <div class="panel-control-box">
         <label>Radius: <span id="radiusLabel">500 feet</span></label>
-        <input id="radiusSlider" type="range" min="50" max="5000" step="50" value="500" />
+        <input id="radiusSlider" type="range" min="50" max="1000" step="50" value="500" />
         <div class="panel-button-row">
           <button onclick="scanCircle()">🔍 Scan</button>
           <button id="removeCircleButton" onclick="removeCircle()" class="disabled-grey">🗑️ Remove</button>
@@ -329,11 +317,11 @@
       <h3>Total Results: <span id="totalResultCount">0</span></h3>
       <h3>Filtered Results: <span id="filteredResultCount">0</span></h3>
       <button id="backToTopButton" onclick="scrollPanelToTop()">⬆️ Back To Top</button>
+      <div id="alphabetScroller" class="alphabet-scroller" aria-label="Business alphabet scroller"></div>
       <div id="results"></div>
     </div>
 
     <div id="panelDragEdge"></div>
-    <div id="alphabetScroller" class="alphabet-scroller" aria-label="Business alphabet scroller"></div>
   </div>
 
   <script>
@@ -751,6 +739,35 @@
       return business.typesRaw.some(function(type) { return selectedTypes.includes(type); });
     }
 
+    function getBusinessInfoFilterState() {
+      return {
+        hasWebsite: document.getElementById("filterHasWebsite").checked,
+        noWebsite: document.getElementById("filterNoWebsite").checked,
+        lastRating2026: document.getElementById("filterLastRating2026").checked
+      };
+    }
+
+    function hasLatestReviewIn2026(business) {
+      const timestamp = Number(business.latestReviewTimestamp || 0);
+      if (!timestamp) return false;
+      return new Date(timestamp * 1000).getFullYear() === 2026;
+    }
+
+    function businessMatchesInfoFilters(business, filters) {
+      const matchesWebsite = Boolean(business.website) && filters.hasWebsite;
+      const matchesNoWebsite = business.detailsLoaded && !business.website && filters.noWebsite;
+      const detailsStillLoading = !business.detailsLoaded && (filters.hasWebsite || filters.noWebsite);
+      const matches2026 = hasLatestReviewIn2026(business) && filters.lastRating2026;
+      return matchesWebsite || matchesNoWebsite || detailsStillLoading || matches2026;
+    }
+
+    function setBusinessListingVisibility(placeId, isVisible) {
+      const business = allBusinesses.find(function(item) { return item.placeId === placeId; });
+      if (!business) return;
+      business.hiddenFromListing = !isVisible;
+      renderResults();
+    }
+
     function placeCircle(center) {
       removeCircleOnly();
       const radiusMeters = feetToMeters(savedCircleRadiusFeet);
@@ -772,7 +789,7 @@
       });
       resizeMarker.addListener("drag", function(event) {
         const newRadiusMeters = distanceMeters(circle.getCenter().lat(), circle.getCenter().lng(), event.latLng.lat(), event.latLng.lng());
-        savedCircleRadiusFeet = Math.max(50, Math.min(5000, Math.round(metersToFeet(newRadiusMeters))));
+        savedCircleRadiusFeet = Math.max(50, Math.min(1000, Math.round(metersToFeet(newRadiusMeters))));
         circle.setRadius(feetToMeters(savedCircleRadiusFeet));
         document.getElementById("radiusSlider").value = savedCircleRadiusFeet;
         updateRadiusLabel(savedCircleRadiusFeet);
@@ -992,7 +1009,7 @@
         latestReviewTimestamp: 0,
         detailsLoaded: !includeContact && !includeAtmosphere,
         marker: null,
-        userHidden: false
+        hiddenFromListing: false
       };
       allBusinesses.push(business);
       addOrRefreshSingleBusiness(business);
@@ -1066,33 +1083,6 @@
       return { dateText: new Date(newestTime * 1000).toLocaleDateString(), timestamp: newestTime };
     }
 
-    function businessMatchesInfoFilters(business) {
-      const hasWebsiteEnabled = document.getElementById("filterHasWebsite").checked;
-      const noWebsiteEnabled = document.getElementById("filterNoWebsite").checked;
-      const review2026Enabled = document.getElementById("filterReview2026").checked;
-
-      const hasWebsite = Boolean((business.website || "").trim());
-      const reviewYear = business.latestReviewTimestamp
-        ? new Date(Number(business.latestReviewTimestamp) * 1000).getFullYear()
-        : 0;
-      const hasReviewIn2026 = reviewYear === 2026;
-
-      const websiteMatch =
-        (hasWebsite && hasWebsiteEnabled) ||
-        (!hasWebsite && noWebsiteEnabled);
-
-      return websiteMatch || (review2026Enabled && hasReviewIn2026);
-    }
-
-    function setBusinessVisibility(placeId, isVisible) {
-      const business = allBusinesses.find(function(item) {
-        return item.placeId === placeId;
-      });
-      if (!business) return;
-      business.userHidden = !isVisible;
-      renderResults();
-    }
-
     function renderResults() {
       const resultsDiv = document.getElementById("results");
       const totalCountSpan = document.getElementById("totalResultCount");
@@ -1101,13 +1091,14 @@
       const nameSearch = document.getElementById("nameSearch").value.toLowerCase().trim();
       const addressSearch = document.getElementById("addressSearch").value.toLowerCase().trim();
       const selectedBusinessTypes = getSelectedBusinessTypes();
+      const infoFilters = getBusinessInfoFilterState();
       clearMarkers();
       let businesses = [...allBusinesses];
       businesses = businesses.filter(function(business) {
         const nameMatch = business.name.toLowerCase().includes(nameSearch);
         const addressMatch = business.address.toLowerCase().includes(addressSearch);
         const typeMatch = businessMatchesSelectedType(business, selectedBusinessTypes);
-        const infoMatch = businessMatchesInfoFilters(business);
+        const infoMatch = businessMatchesInfoFilters(business, infoFilters);
         return nameMatch && addressMatch && typeMatch && infoMatch;
       });
       businesses.sort(function(a, b) {
@@ -1122,10 +1113,10 @@
         return 0;
       });
       totalCountSpan.textContent = allBusinesses.length;
-      filteredCountSpan.textContent = businesses.filter(function(business) { return !business.userHidden; }).length;
+      filteredCountSpan.textContent = businesses.length;
       resultsDiv.innerHTML = "";
       for (const business of businesses) {
-        if (!business.userHidden) createMarker(business);
+        if (!business.hiddenFromListing) createMarker(business);
         resultsDiv.appendChild(createBusinessCard(business));
       }
       updateBackToTopButton();
@@ -1136,13 +1127,10 @@
       const nameSearch = document.getElementById("nameSearch").value.toLowerCase().trim();
       const addressSearch = document.getElementById("addressSearch").value.toLowerCase().trim();
       const selectedBusinessTypes = getSelectedBusinessTypes();
-      const shouldShow =
-        business.name.toLowerCase().includes(nameSearch) &&
-        business.address.toLowerCase().includes(addressSearch) &&
-        businessMatchesSelectedType(business, selectedBusinessTypes) &&
-        businessMatchesInfoFilters(business);
+      const infoFilters = getBusinessInfoFilterState();
+      const shouldShow = business.name.toLowerCase().includes(nameSearch) && business.address.toLowerCase().includes(addressSearch) && businessMatchesSelectedType(business, selectedBusinessTypes) && businessMatchesInfoFilters(business, infoFilters);
       if (!shouldShow) return;
-      if (!business.userHidden) createMarker(business);
+      if (!business.hiddenFromListing) createMarker(business);
       document.getElementById("results").appendChild(createBusinessCard(business));
       document.getElementById("totalResultCount").textContent = allBusinesses.length;
       document.getElementById("filteredResultCount").textContent = document.querySelectorAll(".business-card").length;
@@ -1162,26 +1150,24 @@
       const card = document.createElement("div");
       card.className = "business-card";
       if (!business.detailsLoaded) card.classList.add("loading-details");
+      if (business.hiddenFromListing) card.classList.add("hidden-business");
       card.id = `business-card-${business.placeId}`;
       card.dataset.letter = getBusinessSortLetter(business);
       const websiteText = business.website ? `<span class="has-website">Has website</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">No website found</span>` : `<span class="loading-text">Loading website...</span>`;
       const phoneText = business.phone || (business.detailsLoaded ? "Not found" : "Loading...");
       const reviewText = business.latestReviewDate || (business.detailsLoaded ? "Not found" : "Loading...");
-      const ratingLine = business.includeRatings ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
-      if (business.userHidden) card.classList.add("user-hidden");
+      const ratingLine = business.includeAtmosphere ? `Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))} reviews)` : ""}<br>` : "";
       card.innerHTML = `
-        <label class="business-visibility-row" onclick="event.stopPropagation()">
-          <input
-            type="checkbox"
-            ${business.userHidden ? "" : "checked"}
-            onchange="setBusinessVisibility('${escapeHtml(business.placeId)}', this.checked)"
-          >
-          Show business
-        </label>
-        <strong>${escapeHtml(business.name)}</strong><br>
-        ${escapeHtml(business.address)}
-        <div class="business-card-details">
-          <br><br>
+        <div class="business-visibility-row">
+          <label class="business-visibility-toggle">
+            <input type="checkbox" ${business.hiddenFromListing ? "" : "checked"} aria-label="Show ${escapeHtml(business.name)} in listing and on map">
+            Show business
+          </label>
+          ${business.hiddenFromListing ? `<span class="hidden-business-note">Hidden from map and details</span>` : ""}
+        </div>
+        <div class="business-details">
+          <strong>${escapeHtml(business.name)}</strong><br>
+          ${escapeHtml(business.address)}<br><br>
           Phone: ${escapeHtml(phoneText)}<br>
           Website: ${websiteText}<br>
           ${ratingLine}
@@ -1191,11 +1177,16 @@
           ${business.googleMapsUrl ? `<br><a href="${escapeHtml(business.googleMapsUrl)}" target="_blank">Open in Google Maps</a>` : ""}
         </div>
       `;
-      card.addEventListener("mouseenter", function() {
-        if (!business.userHidden) highlightBusiness(business);
+      const visibilityCheckbox = card.querySelector(".business-visibility-toggle input");
+      visibilityCheckbox.addEventListener("click", function(event) { event.stopPropagation(); });
+      visibilityCheckbox.addEventListener("change", function(event) {
+        event.stopPropagation();
+        setBusinessListingVisibility(business.placeId, event.target.checked);
       });
+      card.addEventListener("mouseenter", function() { if (!business.hiddenFromListing) highlightBusiness(business); });
       card.addEventListener("click", function(event) {
-        if (event.target.closest(".business-visibility-row") || business.userHidden) return;
+        if (event.target.closest(".business-visibility-toggle")) return;
+        if (business.hiddenFromListing) return;
         highlightBusiness(business);
         if (business.latitude && business.longitude) map.panTo({ lat: Number(business.latitude), lng: Number(business.longitude) });
       });
@@ -1241,7 +1232,7 @@
 
     function buildInfoWindowContent(business) {
       const websiteSection = business.website ? `<span class="has-website">Website: yes</span><br><a href="${escapeHtml(business.website)}" target="_blank">${escapeHtml(business.website)}</a>` : business.detailsLoaded ? `<span class="missing">Website: not found</span>` : `<span class="loading-text">Website: loading...</span>`;
-      const ratingLine = business.includeRatings ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
+      const ratingLine = business.includeAtmosphere ? `<br>Rating: ${escapeHtml(String(business.rating || (business.detailsLoaded ? "Not found" : "Loading...")))}${business.reviewCount ? ` (${escapeHtml(String(business.reviewCount))})` : ""}` : "";
       return `
         <div class="info-window-content">
           <strong>${escapeHtml(business.name)}</strong><br>
@@ -1321,7 +1312,7 @@
     }
 
     function scrollToLetter(letter) {
-      const cards = Array.from(document.querySelectorAll(".business-card"));
+      const cards = Array.from(document.querySelectorAll(".business-card:not(.hidden-business)"));
       let target = cards.find(function(card) {
         return card.dataset.letter === letter;
       });
@@ -1344,8 +1335,8 @@
       const panel = document.getElementById("panel");
       if (!scroller || !panel) return;
 
-      const cards = document.querySelectorAll(".business-card");
-      const shouldShow = cards.length > 0;
+      const cards = document.querySelectorAll(".business-card:not(.hidden-business)");
+      const shouldShow = cards.length > 0 && !panel.classList.contains("closed");
       scroller.classList.toggle("visible", shouldShow);
       if (!shouldShow) return;
 
@@ -1360,12 +1351,13 @@
       });
 
       if (window.innerWidth <= 700) {
-        const height = Math.max(180, Math.min(window.innerHeight * 0.68, 430));
+        const panelHeight = panel.offsetHeight || Math.round(window.innerHeight * DEFAULT_PANEL_HEIGHT_RATIO);
+        const height = Math.max(160, Math.min(panelHeight - 58, 430));
         scroller.style.height = height + "px";
-        scroller.style.top = "50%";
-        scroller.style.bottom = "auto";
+        scroller.style.bottom = "14px";
+        scroller.style.top = "auto";
         scroller.style.right = "4px";
-        scroller.style.transform = "translateY(-50%)";
+        scroller.style.transform = "none";
       } else {
         scroller.style.height = Math.min(window.innerHeight * 0.72, 620) + "px";
         scroller.style.top = "50%";
@@ -1516,7 +1508,6 @@
     function escapeHtml(value) { return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
     function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
   </script>
-
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDUx6QIBzCxqNr3_2G1L2iSmn0dT9dRLro&libraries=places&callback=initMap"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAHhKPBGV9k1Wl4E5H9Mcdrxol2JkF-9-A&libraries=places&callback=initMap&loading=async"></script>
 </body>
 </html>
