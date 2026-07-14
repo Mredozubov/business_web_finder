@@ -234,6 +234,18 @@
         <span>⚙️ Settings</span>
         <button id="closeSettingsButton" onclick="closeMapSearchSettings()">×</button>
       </div>
+      <label>Scan Density</label>
+      <select id="densitySelect" onchange="updateScannerModeTitle()">
+        <option value="standard" selected>Standard Search</option>
+        <option value="pro">Pro Search</option>
+        <option value="smart">Smart Search</option>
+        <option value="deep">Deep Search</option>
+      </select>
+
+      <label>Search Any Address</label>
+      <input id="addressLookup" placeholder="Example: 126 W 73rd St, New York" autocomplete="off" oninput="handleAddressLookupInput()" />
+      <div id="addressPredictionBox"></div>
+
       <div class="type-header">
         <span class="business-type-title">Filter by Business Type Found</span>
         <label class="select-all-mini">
@@ -251,39 +263,31 @@
 
       <div class="type-header">
         <span class="business-type-title">Filter by Info</span>
+        <label class="select-all-mini">
+          <input id="businessInfoSelectAll" type="checkbox" onchange="toggleAllBusinessInfoFilters()">
+          select all / unselect
+        </label>
       </div>
       <div id="businessInfoBox">
         <label class="business-info-option">
-          <input id="filterHasWebsite" type="checkbox" checked onchange="renderResults()">
+          <input id="filterHasWebsite" type="checkbox" onchange="handleBusinessInfoFilterChange()">
           Has website
         </label>
         <label class="business-info-option">
-          <input id="filterNoWebsite" type="checkbox" checked onchange="renderResults()">
+          <input id="filterNoWebsite" type="checkbox" onchange="handleBusinessInfoFilterChange()">
           No website
         </label>
         <label class="business-info-option">
-          <input id="filterHasRating2026" type="checkbox" checked onchange="renderResults()">
+          <input id="filterHasRating2026" type="checkbox" onchange="handleBusinessInfoFilterChange()">
           Has rating in 2026
         </label>
       </div>
-
-      <label>Search Any Address</label>
-      <input id="addressLookup" placeholder="Example: 126 W 73rd St, New York" autocomplete="off" oninput="handleAddressLookupInput()" />
-      <div id="addressPredictionBox"></div>
 
       <label>Filter by business name</label>
       <input id="nameSearch" placeholder="Example: Starbucks" oninput="renderResults()" />
 
       <label>Filter by address</label>
       <input id="addressSearch" placeholder="Example: Brooklyn" oninput="renderResults()" />
-
-      <label>Scan Density</label>
-      <select id="densitySelect" onchange="updateScannerModeTitle()">
-        <option value="standard" selected>Standard Search</option>
-        <option value="pro">Pro Search</option>
-        <option value="smart">Smart Search</option>
-        <option value="deep">Deep Search</option>
-      </select>
 
       <label>Sort Results</label>
       <select id="sortSelect" onchange="renderResults()">
@@ -737,6 +741,33 @@
       if (selectedTypes.length === 0) return false;
       if (!business.typesRaw || business.typesRaw.length === 0) return false;
       return business.typesRaw.some(function(type) { return selectedTypes.includes(type); });
+    }
+
+
+    function getBusinessInfoCheckboxes() {
+      return Array.from(document.querySelectorAll("#businessInfoBox input[type='checkbox']"));
+    }
+
+    function syncBusinessInfoMasterCheckbox() {
+      const master = document.getElementById("businessInfoSelectAll");
+      const checkboxes = getBusinessInfoCheckboxes();
+      if (!master || checkboxes.length === 0) return;
+      master.checked = checkboxes.every(function(checkbox) { return checkbox.checked; });
+      master.indeterminate = !master.checked && checkboxes.some(function(checkbox) { return checkbox.checked; });
+    }
+
+    function handleBusinessInfoFilterChange() {
+      syncBusinessInfoMasterCheckbox();
+      renderResults();
+    }
+
+    function toggleAllBusinessInfoFilters() {
+      const master = document.getElementById("businessInfoSelectAll");
+      getBusinessInfoCheckboxes().forEach(function(checkbox) {
+        checkbox.checked = master.checked;
+      });
+      master.indeterminate = false;
+      renderResults();
     }
 
     function getBusinessInfoFilterState() {
