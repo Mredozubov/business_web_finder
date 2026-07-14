@@ -254,16 +254,16 @@
       </div>
       <div id="businessInfoBox">
         <label class="business-info-option">
-          <input id="filterHasWebsite" type="checkbox" onchange="renderResults()">
+          <input id="filterHasWebsite" type="checkbox" checked onchange="renderResults()">
           Has website
         </label>
         <label class="business-info-option">
-          <input id="filterNoWebsite" type="checkbox" onchange="renderResults()">
+          <input id="filterNoWebsite" type="checkbox" checked onchange="renderResults()">
           No website
         </label>
         <label class="business-info-option">
-          <input id="filterLastRating2026" type="checkbox" onchange="renderResults()">
-          Last rating in 2026
+          <input id="filterHasRating2026" type="checkbox" checked onchange="renderResults()">
+          Has rating in 2026
         </label>
       </div>
 
@@ -743,23 +743,29 @@
       return {
         hasWebsite: document.getElementById("filterHasWebsite").checked,
         noWebsite: document.getElementById("filterNoWebsite").checked,
-        lastRating2026: document.getElementById("filterLastRating2026").checked
+        hasRating2026: document.getElementById("filterHasRating2026").checked
       };
     }
 
-    function hasLatestReviewIn2026(business) {
+    function hasRatingIn2026(business) {
       const timestamp = Number(business.latestReviewTimestamp || 0);
       if (!timestamp) return false;
       return new Date(timestamp * 1000).getFullYear() === 2026;
     }
 
     function businessMatchesInfoFilters(business, filters) {
-      // Every checked box is an optional requirement.
-      // An unchecked box does not restrict the results.
-      if (filters.hasWebsite && !business.website) return false;
-      if (filters.noWebsite && (!business.detailsLoaded || Boolean(business.website))) return false;
-      if (filters.lastRating2026 && !hasLatestReviewIn2026(business)) return false;
-      return true;
+      const anyFilterOn = filters.hasWebsite || filters.noWebsite || filters.hasRating2026;
+      if (!anyFilterOn) return true;
+
+      if (filters.hasWebsite && Boolean(business.website)) return true;
+      if (filters.noWebsite && business.detailsLoaded && !business.website) return true;
+      if (filters.hasRating2026 && hasRatingIn2026(business)) return true;
+
+      // Keep businesses visible while requested details are still loading so they can
+      // automatically enter the correct filtered group once Google returns the data.
+      const waitingForWebsiteData = !business.detailsLoaded && (filters.hasWebsite || filters.noWebsite);
+      const waitingForRatingData = !business.detailsLoaded && filters.hasRating2026 && business.includeAtmosphere;
+      return waitingForWebsiteData || waitingForRatingData;
     }
 
     function setBusinessListingVisibility(placeId, isVisible) {
