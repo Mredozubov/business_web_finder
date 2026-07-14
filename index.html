@@ -796,8 +796,11 @@
     }
 
     function hasRatingIn2026(business) {
+      // The filter requires both a provided Google rating and a provided
+      // review date whose year is 2026.
+      const rating = Number(business.rating);
       const timestamp = Number(business.latestReviewTimestamp || 0);
-      if (!timestamp) return false;
+      if (!Number.isFinite(rating) || rating <= 0 || !timestamp) return false;
       return new Date(timestamp * 1000).getFullYear() === 2026;
     }
 
